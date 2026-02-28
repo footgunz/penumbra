@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPTS_DIR="device/scripts"
 PATCH_DIR="device"
-OUTPUT="device.amxd"
+OUTPUT="Penumbra.amxd"
 
 if [ ! -f "$SCRIPTS_DIR/dist/main.js" ]; then
   echo "Error: dist/main.js not found. Run 'pnpm build' first."

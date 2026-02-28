@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INPUT="${1:-device.amxd}"
+INPUT="${1:-Penumbra.amxd}"
 
 if [ ! -f "$INPUT" ]; then
   echo "Error: $INPUT not found."
