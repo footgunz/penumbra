@@ -2,7 +2,6 @@ import {
   app,
   BrowserWindow,
   globalShortcut,
-  ipcMain,
   Tray,
   Menu,
   nativeImage,
