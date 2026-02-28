@@ -24,10 +24,6 @@ describe('createEmitter', () => {
   })
 
   it('resetSession changes the session id', () => {
-    const ids: string[] = []
-    // Capture session_id by decoding the first field — easier to just compare
-    // two emits after a reset and confirm the payload differs in length or content.
-    // Use a simpler approach: spy on the internal state via two separate emitters.
     const sent1: number[][] = []
     const sent2: number[][] = []
     const e1 = createEmitter((b) => sent1.push(b))
