@@ -37,6 +37,17 @@ function udpSend(bytes: number[]): void {
 
 var emitter = createEmitter(udpSend)
 
+// ─── Track-change observer ────────────────────────────────────────────────────
+// Resets the session ID whenever tracks are added or deleted so the server
+// knows to discard accumulated state from the previous session layout.
+
+var liveSet = new LiveAPI(function(args) {
+  if (args[0] === 'tracks') {
+    emitter.resetSession()
+    post('Penumbra: track change detected — session reset\n')
+  }
+}, 'live_set')
+
 // ─── LOM read ────────────────────────────────────────────────────────────────
 
 function readLOM(): void {
