@@ -45,7 +45,7 @@ tasks:
     desc: Build Go server and fake emitter
     deps: [build:ui]  # UI must be built first for embed.FS
     cmds:
-      - go build -o ableton-dmx-server ./...
+      - go build -o ableton-dmx-server .
       - cd ../{{.EMITTER_DIR}} && go build ./...
     dir: '{{.SERVER_DIR}}'
     sources:
@@ -220,12 +220,12 @@ tasks:
     desc: Build release artifacts (all platforms)
     deps: [build:ui]
     cmds:
-      - GOOS=darwin  GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64     ./...
-      - GOOS=darwin  GOARCH=amd64 go build -o ableton-dmx-server-mac-amd64     ./...
-      - GOOS=linux   GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64   ./...
-      - GOOS=linux   GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64   ./...
-      - GOOS=windows GOARCH=arm64 go build -o ableton-dmx-server-windows-arm64.exe ./...
-      - GOOS=windows GOARCH=amd64 go build -o ableton-dmx-server-windows-amd64.exe ./...
+      - GOOS=darwin  GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64     .
+      - GOOS=darwin  GOARCH=amd64 go build -o ableton-dmx-server-mac-amd64     .
+      - GOOS=linux   GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64   .
+      - GOOS=linux   GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64   .
+      - GOOS=windows GOARCH=arm64 go build -o ableton-dmx-server-windows-arm64.exe .
+      - GOOS=windows GOARCH=amd64 go build -o ableton-dmx-server-windows-amd64.exe .
     dir: '{{.SERVER_DIR}}'
 
   release:electron:
