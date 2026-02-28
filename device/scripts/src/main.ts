@@ -67,10 +67,10 @@ function normParam(paramPath: string): number {
   return n
 }
 
-function readTrackParams(trackPath: string, namePrefix: string): void {
+function readTrackParams(trackPath: string): void {
   var track = new LiveAPI(null, trackPath)
   var rawName = track.get('name')[0] as string
-  var safeName = namePrefix + rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+  var safeName = rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
   var mixerPath = trackPath + ' mixer_device'
   var mixer = new LiveAPI(null, mixerPath)
 
@@ -89,13 +89,13 @@ function readLOM(): void {
 
     var trackCount = root.getcount('tracks')
     for (var i = 0; i < trackCount; i++) {
-      readTrackParams('live_set tracks ' + i, '')
+      readTrackParams('live_set tracks ' + i)
     }
 
-    var returnCount = root.getcount('return_tracks')
-    for (var r = 0; r < returnCount; r++) {
-      readTrackParams('live_set return_tracks ' + r, 'return_')
-    }
+    // Return tracks (reverb/delay sends) could be added here if needed:
+    // for (var r = 0; r < root.getcount('return_tracks'); r++) {
+    //   readTrackParams('live_set return_tracks ' + r, 'return_')
+    // }
   } catch (e) {
     post('M4L LOM read error:', e, '\n')
   }

@@ -11,7 +11,7 @@ Every 40ms the emitter reads mixer state from the Live Object Model and sends
 it to the Penumbra server as a MessagePack-encoded UDP datagram. The server
 handles diff detection, E1.31 output, and WebSocket fanout to the UI.
 
-**Parameters emitted per regular track** (named after the track, lowercased and
+**Parameters emitted per track** (named after the track, lowercased and
 non-alphanumeric chars replaced with `_`):
 
 | Parameter | Range | Notes |
@@ -20,10 +20,11 @@ non-alphanumeric chars replaced with `_`):
 | `<track>_pan` | 0.0–1.0 | 0.5 = centre, 0.0 = full left, 1.0 = full right |
 | `<track>_send_0` | 0.0–1.0 | Per return track; index matches Live's return track order |
 
-**Return tracks** use the prefix `return_` (e.g. `return_reverb_volume`).
-
 Values are normalised to 0.0–1.0 using the DeviceParameter's own `min`/`max`,
 so the output is independent of Live's internal scale.
+
+Return track levels (`return_<name>_volume` etc.) are not emitted by default
+but the code includes a commented stub in `readLOM()` if you need them.
 
 ---
 
