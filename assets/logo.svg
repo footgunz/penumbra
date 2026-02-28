@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+
+    <!-- Deep space background: indigo tint at centre, almost-black at edges -->
+    <radialGradient id="bg" cx="50%" cy="42%" r="62%">
+      <stop offset="0%"   stop-color="#1a1745"/>
+      <stop offset="100%" stop-color="#08080e"/>
+    </radialGradient>
+
+    <!-- Penumbra disc: dark umbra → glowing indigo/violet ring → fade to black -->
+    <radialGradient id="pen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#08080e"/>
+      <stop offset="48%"  stop-color="#08080e"/>
+      <stop offset="64%"  stop-color="#312e81" stop-opacity="0.45"/>
+      <stop offset="76%"  stop-color="#6366f1"/>
+      <stop offset="84%"  stop-color="#a78bfa"/>
+      <stop offset="91%"  stop-color="#c4b5fd" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#08080e" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- DMX beam: indigo → transparent downward -->
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#818cf8" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Glow: tight, for rings and dots -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Glow: wide, for the penumbra disc itself -->
+    <filter id="discglow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Glow: very wide, for volumetric beams -->
+    <filter id="beamglow" x="-40%" y="-5%" width="180%" height="110%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Clip to rounded square -->
+    <clipPath id="bounds">
+      <rect width="512" height="512" rx="80"/>
+    </clipPath>
+
+  </defs>
+
+  <g clip-path="url(#bounds)">
+
+    <!-- Background -->
+    <rect width="512" height="512" fill="url(#bg)"/>
+
+    <!-- ── DMX spot beams ─────────────────────────────────────────────────── -->
+    <!-- Three triangular beams, apex at bottom of penumbra circle (y≈325),  -->
+    <!-- fanning out toward the bottom edge — stage lights shining down.      -->
+
+    <!-- Left beam -->
+    <polygon points="200,323 88,512 280,512"
+             fill="url(#beam)" opacity="0.65" filter="url(#beamglow)"/>
+
+    <!-- Centre beam (slightly brighter) -->
+    <polygon points="256,330 168,512 344,512"
+             fill="url(#beam)" opacity="0.85" filter="url(#beamglow)"/>
+
+    <!-- Right beam -->
+    <polygon points="312,323 232,512 424,512"
+             fill="url(#beam)" opacity="0.65" filter="url(#beamglow)"/>
+
+    <!-- ── Universe orbit rings ───────────────────────────────────────────── -->
+    <!-- Two thin concentric rings — the E1.31 "universes" in orbit          -->
+
+    <circle cx="256" cy="194" r="158"
+            fill="none" stroke="#6366f1" stroke-width="0.8" opacity="0.28"/>
+    <circle cx="256" cy="194" r="138"
+            fill="none" stroke="#6366f1" stroke-width="0.8" opacity="0.38"/>
+
+    <!-- ── Penumbra disc ──────────────────────────────────────────────────── -->
+    <!-- The hero element: the glowing partial-shadow ring                    -->
+
+    <circle cx="256" cy="194" r="122"
+            fill="url(#pen)" filter="url(#discglow)"/>
+
+    <!-- ── Umbra (dark core) ─────────────────────────────────────────────── -->
+
+    <circle cx="256" cy="194" r="60" fill="#08080e"/>
+
+    <!-- Umbra rim glow -->
+    <circle cx="256" cy="194" r="60"
+            fill="none" stroke="#6366f1" stroke-width="2.5"
+            opacity="0.7" filter="url(#glow)"/>
+
+    <!-- Crescent highlight — upper edge of the umbra catches a sliver of light -->
+    <path d="M 190 170 A 66 66 0 0 1 322 170"
+          fill="none" stroke="white" stroke-width="1.5"
+          stroke-linecap="round" opacity="0.38"/>
+
+    <!-- ── Universe marker dots ───────────────────────────────────────────── -->
+    <!-- Three small glowing points on the inner orbit ring (r=138)          -->
+
+    <!-- Left  -->
+    <circle cx="118" cy="194" r="5" fill="#a78bfa" filter="url(#glow)"/>
+    <!-- Right -->
+    <circle cx="394" cy="194" r="5" fill="#a78bfa" filter="url(#glow)"/>
+    <!-- Top   -->
+    <circle cx="256" cy="56"  r="5" fill="#c4b5fd" opacity="0.85" filter="url(#glow)"/>
+
+  </g>
+</svg>
