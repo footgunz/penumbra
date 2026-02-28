@@ -1,0 +1,231 @@
+version: '3'
+
+dotenv: ['.env', '.env.local']
+
+vars:
+  SERVER_DIR: server
+  EMITTER_DIR: tools/fake-emitter
+  DEVICE_DIR: device/scripts
+  UDP_PORT: '{{.UDP_PORT | default "7000"}}'
+  WS_PORT: '{{.WS_PORT | default "3000"}}'
+
+tasks:
+
+  # ── Default ──────────────────────────────────────────────────────────────────
+
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  # ── Install ──────────────────────────────────────────────────────────────────
+
+  install:
+    desc: Install all dependencies (pnpm + go mod)
+    deps: [install:ts, install:go]
+
+  install:ts:
+    desc: Install TypeScript dependencies
+    cmds:
+      - pnpm install
+
+  install:go:
+    desc: Tidy Go modules
+    cmds:
+      - go mod tidy
+    dir: '{{.SERVER_DIR}}'
+
+  # ── Build ─────────────────────────────────────────────────────────────────────
+
+  build:
+    desc: Build all components (parallel)
+    deps: [build:go, build:ts]
+
+  build:go:
+    desc: Build Go server and fake emitter
+    deps: [build:ui]  # UI must be built first for embed.FS
+    cmds:
+      - go build -o ableton-dmx-server ./...
+      - cd ../{{.EMITTER_DIR}} && go build ./...
+    dir: '{{.SERVER_DIR}}'
+    sources:
+      - '{{.SERVER_DIR}}/**/*.go'
+      - 'ui/dist/**'
+    generates:
+      - '{{.SERVER_DIR}}/ableton-dmx-server'
+
+  build:ts:
+    desc: Build all TypeScript packages
+    cmds:
+      - pnpm build
+
+  build:ui:
+    desc: Build Vite UI (output goes to server/ui/dist for embedding)
+    cmds:
+      - pnpm --filter ui build
+    sources:
+      - 'ui/src/**'
+      - 'ui/public/**'
+      - 'ui/vite.config.ts'
+    generates:
+      - 'server/ui/dist/**'
+
+  build:device:
+    desc: Build M4L device scripts
+    cmds:
+      - pnpm --filter device-scripts build
+    dir: '{{.DEVICE_DIR}}'
+    sources:
+      - '{{.DEVICE_DIR}}/src/**/*.ts'
+    generates:
+      - '{{.DEVICE_DIR}}/dist/main.js'
+
+  build:electron:
+    desc: Build Electron shell
+    cmds:
+      - pnpm --filter electron build
+
+  # ── Watch ─────────────────────────────────────────────────────────────────────
+
+  watch:
+    desc: Watch all components (parallel)
+    deps: [watch:go, watch:device, watch:ui]
+
+  watch:go:
+    desc: Watch and rebuild Go server
+    cmds:
+      - go run github.com/air-verse/air
+    dir: '{{.SERVER_DIR}}'
+
+  watch:device:
+    desc: Watch M4L device scripts (autowatch reloads in Max)
+    cmds:
+      - pnpm --filter device-scripts watch
+
+  watch:ui:
+    desc: Run Vite dev server (proxies /ws to Go)
+    cmds:
+      - pnpm --filter ui dev
+
+  # ── Test ──────────────────────────────────────────────────────────────────────
+
+  test:
+    desc: Run all tests (parallel)
+    deps: [test:go, test:ts]
+
+  test:go:
+    desc: Run Go tests
+    cmds:
+      - go test ./...
+    dir: '{{.SERVER_DIR}}'
+
+  test:ts:
+    desc: Run TypeScript tests
+    cmds:
+      - pnpm test
+
+  # ── Lint / Typecheck ──────────────────────────────────────────────────────────
+
+  lint:
+    desc: Lint all components (parallel)
+    deps: [lint:go, lint:ts]
+
+  lint:go:
+    desc: Vet Go code
+    cmds:
+      - go vet ./...
+    dir: '{{.SERVER_DIR}}'
+
+  lint:ts:
+    desc: Lint TypeScript
+    cmds:
+      - pnpm lint
+
+  typecheck:
+    desc: Typecheck all TypeScript
+    cmds:
+      - pnpm typecheck
+
+  ci:
+    desc: Run full CI suite locally (lint + typecheck + test + build)
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+      - task: build
+
+  # ── Fake Emitter ──────────────────────────────────────────────────────────────
+
+  fake:
+    desc: Run fake emitter — MODE=static|animated TARGET=host:port
+    summary: |
+      Replaces M4L for development. No Live license needed.
+      Examples:
+        task fake                               # animated, localhost
+        task fake MODE=static                   # fixed values
+        task fake TARGET=192.168.1.50:7000      # remote server
+        task fake MODE=animated SESSION=test-1  # custom session ID
+    cmds:
+      - go run . --mode {{.MODE | default "animated"}} --target {{.TARGET | default "localhost:{{.UDP_PORT}}"}} --session {{.SESSION | default "fake-session-001"}}
+    dir: '{{.EMITTER_DIR}}'
+
+  fake:static:
+    desc: Run fake emitter in static mode (fixed values)
+    cmds:
+      - task: fake
+        vars: { MODE: static }
+
+  fake:animated:
+    desc: Run fake emitter in animated mode (sweeping values)
+    cmds:
+      - task: fake
+        vars: { MODE: animated }
+
+  # ── Server ────────────────────────────────────────────────────────────────────
+
+  server:
+    desc: Run Go server (requires built binary)
+    cmds:
+      - ./ableton-dmx-server
+    dir: '{{.SERVER_DIR}}'
+    env:
+      UDP_PORT: '{{.UDP_PORT}}'
+      WS_PORT: '{{.WS_PORT}}'
+
+  server:dev:
+    desc: Run Go server in dev mode with live reload (requires air)
+    cmds:
+      - go run github.com/air-verse/air
+    dir: '{{.SERVER_DIR}}'
+    env:
+      UDP_PORT: '{{.UDP_PORT}}'
+      WS_PORT: '{{.WS_PORT}}'
+
+  # ── M4L Device ────────────────────────────────────────────────────────────────
+
+  pack:
+    desc: Build everything and pack .amxd for distribution
+    deps: [build:device]
+    cmds:
+      - scripts/pack.sh
+
+  unpack:
+    desc: Unpack .amxd into device/ for development
+    cmds:
+      - scripts/unpack.sh
+
+  # ── Release ───────────────────────────────────────────────────────────────────
+
+  release:build:
+    desc: Build release artifacts (all platforms)
+    deps: [build:ui]
+    cmds:
+      - GOOS=darwin  GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64  ./...
+      - GOOS=linux   GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64 ./...
+      - GOOS=linux   GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64 ./...
+    dir: '{{.SERVER_DIR}}'
+
+  release:electron:
+    desc: Package Electron app
+    cmds:
+      - pnpm --filter electron package

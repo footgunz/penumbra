@@ -1,0 +1,40 @@
+{
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 6,
+    "project": "./tsconfig.json"
+  },
+  "globals": {
+    "post": "readonly",
+    "outlet": "readonly",
+    "inlet": "readonly",
+    "Max": "readonly",
+    "Task": "readonly",
+    "mgraphics": "readonly",
+    "sketch": "readonly",
+    "jsarguments": "readonly",
+    "messagename": "readonly",
+    "inlets": "writable",
+    "outlets": "writable",
+    "autowatch": "writable"
+  },
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "AwaitExpression",
+        "message": "async/await is not supported in the Max JS runtime"
+      },
+      {
+        "selector": "ChainExpression",
+        "message": "Optional chaining (?.) is not supported in the Max JS runtime"
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "warn"
+  }
+}

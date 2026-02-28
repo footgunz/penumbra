@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: server/go.sum
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # TS checks
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # Go checks
+      - run: go vet ./...
+        working-directory: server
+      - run: go test ./...
+        working-directory: server
+
+      # Build UI first (output goes into server/ui/dist for embedding)
+      - run: pnpm --filter ui build
+
+      # Build Go binaries (UI is now embedded)
+      - name: Build Go — macOS
+        run: GOOS=darwin GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64 ./...
+        working-directory: server
+
+      - name: Build Go — Linux arm64 (Pi)
+        run: GOOS=linux GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64 ./...
+        working-directory: server
+
+      - name: Build Go — Linux amd64
+        run: GOOS=linux GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64 ./...
+        working-directory: server
+
+      # Pack .amxd
+      - run: pnpm --filter device-scripts build
+      - run: pnpm pack
+
+      # Build Electron app (bundles mac Go binary)
+      - name: Copy Go binary for Electron packaging
+        run: cp server/ableton-dmx-server-mac-arm64 server/ableton-dmx-server
+
+      - run: pnpm --filter electron package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.amxd
+            server/ableton-dmx-server-*
+            electron/dist/*.dmg
+            electron/dist/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
