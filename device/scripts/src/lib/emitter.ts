@@ -21,9 +21,9 @@ interface State {
 
 function generateSessionId(): string {
   // UUID v4 via Math.random — no crypto in Max's SpiderMonkey
-  var s = ''
-  for (var i = 0; i < 32; i++) {
-    var r = Math.floor(Math.random() * 16)
+  let s = ''
+  for (let i = 0; i < 32; i++) {
+    const r = Math.floor(Math.random() * 16)
     if (i === 8 || i === 12 || i === 16 || i === 20) s += '-'
     if (i === 12) {
       s += '4'
@@ -37,7 +37,7 @@ function generateSessionId(): string {
 }
 
 export function createEmitter(send: SendFn) {
-  var state: State = {
+  const state: State = {
     session_id: generateSessionId(),
     params: {},
   }
@@ -53,14 +53,14 @@ export function createEmitter(send: SendFn) {
     },
 
     emit: function(): void {
-      var pkt = {
+      const pkt = {
         session_id: state.session_id,
         ts: Date.now(),
         state: state.params,
       }
-      var encoded = encode(pkt)
-      var bytes: number[] = []
-      for (var i = 0; i < encoded.length; i++) {
+      const encoded = encode(pkt)
+      const bytes: number[] = []
+      for (let i = 0; i < encoded.length; i++) {
         bytes[i] = encoded[i]
       }
       send(bytes)

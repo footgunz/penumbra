@@ -6,73 +6,130 @@ on:
       - 'v*'
 
 jobs:
-  release:
-    runs-on: macos-latest
+
+  # ── TypeScript: typecheck, lint, test, build UI ────────────────────────────
+  typescript:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache-dependency-path: server/go.sum
-
       - uses: pnpm/action-setup@v3
         with:
           version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
-
       - run: pnpm install --frozen-lockfile
-
-      # TS checks
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm --filter ui build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: server/ui/dist/
 
-      # Go checks
+  # ── Go: vet + test (depends on UI artifact) ────────────────────────────────
+  go-check:
+    runs-on: ubuntu-latest
+    needs: typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: server/ui/dist/
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: server/go.sum
       - run: go vet ./...
         working-directory: server
       - run: go test ./...
         working-directory: server
 
-      # Build UI first (output goes into server/ui/dist for embedding)
-      - run: pnpm --filter ui build
-
-      # Build Go binaries (UI is now embedded)
-      - name: Build Go — macOS
-        run: GOOS=darwin GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64 ./...
+  # ── Go: cross-compile server for all platforms ─────────────────────────────
+  build-server:
+    runs-on: ubuntu-latest
+    needs: typescript
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            suffix: mac-arm64
+          - goos: darwin
+            goarch: amd64
+            suffix: mac-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: windows
+            goarch: arm64
+            suffix: windows-arm64
+            ext: .exe
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: server/ui/dist/
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: server/go.sum
+      - name: Build ${{ matrix.suffix }}
+        run: >
+          GOOS=${{ matrix.goos }}
+          GOARCH=${{ matrix.goarch }}
+          go build -o ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }} ./...
         working-directory: server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.suffix }}
+          path: server/ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }}
 
-      - name: Build Go — Linux arm64 (Pi)
-        run: GOOS=linux GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64 ./...
-        working-directory: server
-
-      - name: Build Go — Linux amd64
-        run: GOOS=linux GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64 ./...
-        working-directory: server
-
-      # Pack .amxd
+  # ── M4L: build device scripts and pack .amxd ──────────────────────────────
+  build-device:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - run: pnpm --filter device-scripts build
       - run: pnpm pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: device-amxd
+          path: device.amxd
 
-      # Build Electron app (bundles mac Go binary)
-      - name: Copy Go binary for Electron packaging
-        run: cp server/ableton-dmx-server-mac-arm64 server/ableton-dmx-server
-
-      - run: pnpm --filter electron package
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to GitHub Releases
+  # ── Publish GitHub Release ─────────────────────────────────────────────────
+  release:
+    runs-on: ubuntu-latest
+    needs: [go-check, build-server, build-device]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          merge-multiple: true
+      - name: Publish
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            *.amxd
-            server/ableton-dmx-server-*
-            electron/dist/*.dmg
-            electron/dist/*.AppImage
+          files: artifacts/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
