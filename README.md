@@ -4,7 +4,7 @@
 
 # Penumbra
 
-> The edge where sound becomes light.
+> The edge where sound becomes light
 
 Penumbra bridges Ableton Live and DMX lighting hardware. An M4L device streams your session state in real time to a Go server, which drives WLED/ESP32 fixtures over E1.31 multicast. A PWA gives you monitoring and control from any device on the network — browser, phone, or native app.
 
