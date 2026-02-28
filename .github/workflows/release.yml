@@ -114,7 +114,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: device-amxd
-          path: device.amxd
+          path: Penumbra.amxd
 
   # ── Publish GitHub Release ─────────────────────────────────────────────────
   release:

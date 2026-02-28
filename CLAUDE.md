@@ -112,7 +112,7 @@ See `PROTOCOL.md` for full spec. Key points:
 ```
 .
 ├── device/                    # M4L patch, unpacked from .amxd
-│   ├── device.maxpat          # Minimal Max patch — wiring and UI only
+│   ├── Penumbra.maxpat        # Minimal Max patch — wiring and UI only
 │   ├── scripts/
 │   │   ├── src/
 │   │   │   ├── main.ts        # Max entry point — LOM subscriptions, udpsend
@@ -239,7 +239,7 @@ M4L is intentionally simple. Its only job is to read Live Object Model state and
 
 - `.amxd` not committed — CI build artifact, published to GitHub Releases on tag
 - `device/scripts/dist/` gitignored — never commit compiled output
-- `device.maxpat` stays minimal — wiring and UI only
+- `Penumbra.maxpat` stays minimal — wiring and UI only
 
 ### Architecture
 
@@ -358,7 +358,7 @@ Run `task` with no arguments to list all available tasks with descriptions.
 
 **Tag push `v*`:**
 - All CI steps
-- Pack `device/scripts/dist/` → `device.amxd`
+- Pack `device/scripts/dist/` → `Penumbra.amxd`
 - Cross-compile Go for mac/linux/arm64
 - Build Electron app (bundles Go binary for local mode)
 - Publish to GitHub Releases: `.amxd`, Go binaries, Electron app
