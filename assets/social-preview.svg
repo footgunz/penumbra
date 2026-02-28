@@ -1,127 +1,141 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640">
   <defs>
 
-    <!-- Deep space background -->
+    <!-- Outer background -->
     <radialGradient id="bg" cx="50%" cy="50%" r="70%">
       <stop offset="0%"   stop-color="#1a1745"/>
       <stop offset="100%" stop-color="#08080e"/>
     </radialGradient>
 
-    <!-- Penumbra disc gradient -->
-    <radialGradient id="pen" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#08080e"/>
-      <stop offset="48%"  stop-color="#08080e"/>
-      <stop offset="64%"  stop-color="#312e81" stop-opacity="0.45"/>
-      <stop offset="76%"  stop-color="#6366f1"/>
-      <stop offset="84%"  stop-color="#a78bfa"/>
-      <stop offset="91%"  stop-color="#c4b5fd" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#08080e" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- DMX beam gradient -->
-    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#818cf8" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
-    </linearGradient>
-
-    <!-- Filters -->
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="discglow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="10" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="beamglow" x="-40%" y="-5%" width="180%" height="110%">
-      <feGaussianBlur stdDeviation="14" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <!-- Text glow -->
     <filter id="textglow" x="-10%" y="-40%" width="120%" height="180%">
       <feGaussianBlur stdDeviation="8" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-
-    <!-- Logo clip (rounded square, logo positioned at cx=360 cy=320, r=200) -->
-    <clipPath id="logoClip">
-      <rect x="166" y="126" width="388" height="388" rx="60"/>
-    </clipPath>
 
   </defs>
 
   <!-- Background -->
   <rect width="1280" height="640" fill="url(#bg)"/>
 
-  <!-- ── Logo group, centred at (360, 320), scaled down from 512→388 (×0.757) ── -->
-  <g transform="translate(166, 126) scale(0.757)" clip-path="url(#logoClip)">
+  <!-- ── Logo ────────────────────────────────────────────────────────────────
+       Nested SVG gives the logo its own 512×512 viewport so its internal
+       clip path and filters work exactly as in logo.svg — no manual scaling
+       or external clip needed. Positioned to leave ≥ 80px safe margin on
+       all sides (GitHub template: 40pt min).
+  ── -->
+  <svg x="80" y="80" width="440" height="440" viewBox="0 0 512 512" overflow="hidden">
+    <defs>
 
-    <!-- Logo background -->
-    <rect width="512" height="512" fill="url(#bg)"/>
+      <radialGradient id="l-bg" cx="50%" cy="42%" r="62%">
+        <stop offset="0%"   stop-color="#1a1745"/>
+        <stop offset="100%" stop-color="#08080e"/>
+      </radialGradient>
 
-    <!-- DMX beams -->
-    <polygon points="200,323 88,512 280,512"
-             fill="url(#beam)" opacity="0.65" filter="url(#beamglow)"/>
-    <polygon points="256,330 168,512 344,512"
-             fill="url(#beam)" opacity="0.85" filter="url(#beamglow)"/>
-    <polygon points="312,323 232,512 424,512"
-             fill="url(#beam)" opacity="0.65" filter="url(#beamglow)"/>
+      <radialGradient id="l-pen" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"   stop-color="#08080e"/>
+        <stop offset="48%"  stop-color="#08080e"/>
+        <stop offset="64%"  stop-color="#312e81" stop-opacity="0.45"/>
+        <stop offset="76%"  stop-color="#6366f1"/>
+        <stop offset="84%"  stop-color="#a78bfa"/>
+        <stop offset="91%"  stop-color="#c4b5fd" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#08080e" stop-opacity="0"/>
+      </radialGradient>
 
-    <!-- Orbit rings -->
-    <circle cx="256" cy="194" r="158"
-            fill="none" stroke="#6366f1" stroke-width="1" opacity="0.28"/>
-    <circle cx="256" cy="194" r="138"
-            fill="none" stroke="#6366f1" stroke-width="1" opacity="0.38"/>
+      <linearGradient id="l-beam" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#818cf8" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#818cf8" stop-opacity="0"/>
+      </linearGradient>
 
-    <!-- Penumbra disc -->
-    <circle cx="256" cy="194" r="122"
-            fill="url(#pen)" filter="url(#discglow)"/>
+      <filter id="l-glow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
 
-    <!-- Umbra -->
-    <circle cx="256" cy="194" r="60" fill="#08080e"/>
-    <circle cx="256" cy="194" r="60"
-            fill="none" stroke="#6366f1" stroke-width="2.5"
-            opacity="0.7" filter="url(#glow)"/>
+      <filter id="l-discglow" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="12" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
 
-    <!-- Crescent highlight -->
-    <path d="M 190 170 A 66 66 0 0 1 322 170"
-          fill="none" stroke="white" stroke-width="1.5"
-          stroke-linecap="round" opacity="0.38"/>
+      <filter id="l-beamglow" x="-40%" y="-5%" width="180%" height="110%">
+        <feGaussianBlur stdDeviation="18" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
 
-    <!-- Universe marker dots -->
-    <circle cx="118" cy="194" r="5" fill="#a78bfa" filter="url(#glow)"/>
-    <circle cx="394" cy="194" r="5" fill="#a78bfa" filter="url(#glow)"/>
-    <circle cx="256" cy="56"  r="5" fill="#c4b5fd" opacity="0.85" filter="url(#glow)"/>
+      <!-- Logo's own rounded-square clip (matches logo.svg exactly) -->
+      <clipPath id="l-bounds">
+        <rect width="512" height="512" rx="80"/>
+      </clipPath>
 
-  </g>
+    </defs>
 
-  <!-- Subtle orbit rings extending into background for depth -->
-  <ellipse cx="360" cy="320" rx="260" ry="260"
-           fill="none" stroke="#6366f1" stroke-width="0.5" opacity="0.08"/>
-  <ellipse cx="360" cy="320" rx="220" ry="220"
-           fill="none" stroke="#6366f1" stroke-width="0.5" opacity="0.06"/>
+    <g clip-path="url(#l-bounds)">
 
-  <!-- ── Text group, right side ── -->
-  <!-- Project name -->
-  <text x="780" y="268"
+      <rect width="512" height="512" fill="url(#l-bg)"/>
+
+      <!-- DMX beams -->
+      <polygon points="200,323 88,512 280,512"
+               fill="url(#l-beam)" opacity="0.65" filter="url(#l-beamglow)"/>
+      <polygon points="256,330 168,512 344,512"
+               fill="url(#l-beam)" opacity="0.85" filter="url(#l-beamglow)"/>
+      <polygon points="312,323 232,512 424,512"
+               fill="url(#l-beam)" opacity="0.65" filter="url(#l-beamglow)"/>
+
+      <!-- Orbit rings -->
+      <circle cx="256" cy="194" r="158"
+              fill="none" stroke="#6366f1" stroke-width="0.8" opacity="0.28"/>
+      <circle cx="256" cy="194" r="138"
+              fill="none" stroke="#6366f1" stroke-width="0.8" opacity="0.38"/>
+
+      <!-- Penumbra disc -->
+      <circle cx="256" cy="194" r="122"
+              fill="url(#l-pen)" filter="url(#l-discglow)"/>
+
+      <!-- Umbra -->
+      <circle cx="256" cy="194" r="60" fill="#08080e"/>
+      <circle cx="256" cy="194" r="60"
+              fill="none" stroke="#6366f1" stroke-width="2.5"
+              opacity="0.7" filter="url(#l-glow)"/>
+
+      <!-- Crescent highlight -->
+      <path d="M 190 170 A 66 66 0 0 1 322 170"
+            fill="none" stroke="white" stroke-width="1.5"
+            stroke-linecap="round" opacity="0.38"/>
+
+      <!-- Universe marker dots -->
+      <circle cx="118" cy="194" r="5" fill="#a78bfa" filter="url(#l-glow)"/>
+      <circle cx="394" cy="194" r="5" fill="#a78bfa" filter="url(#l-glow)"/>
+      <circle cx="256" cy="56"  r="5" fill="#c4b5fd" opacity="0.85" filter="url(#l-glow)"/>
+
+    </g>
+  </svg>
+
+  <!-- Subtle decorative rings around the logo in the outer canvas -->
+  <ellipse cx="300" cy="320" rx="290" ry="290"
+           fill="none" stroke="#6366f1" stroke-width="0.5" opacity="0.07"/>
+  <ellipse cx="300" cy="320" rx="245" ry="245"
+           fill="none" stroke="#6366f1" stroke-width="0.5" opacity="0.05"/>
+
+  <!-- ── Text — safe zone x=40..1240, y=40..600 ─────────────────────────────
+       Two-line block centred vertically on the canvas (y=320).
+       Block spans from title-top (~y=246) to tagline-bottom (~y=384),
+       visual centre ≈ 315. Text starts at x=600, stays under x=1220.
+  ── -->
+
+  <!-- "Penumbra" at 88px ≈ 420px wide → right edge ≈ 1020 -->
+  <text x="600" y="308"
         font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
-        font-size="96" font-weight="700" letter-spacing="-2"
+        font-size="88" font-weight="700" letter-spacing="-2"
         fill="#e0e7ff" filter="url(#textglow)">Penumbra</text>
 
-  <!-- Tagline -->
-  <text x="784" y="328"
-        font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
-        font-size="28" font-weight="400" letter-spacing="0.5"
-        fill="#818cf8" opacity="0.9">The edge where sound becomes light.</text>
-
-  <!-- Divider -->
-  <line x1="784" y1="368" x2="1160" y2="368"
+  <!-- Divider sits immediately under the title -->
+  <line x1="604" y1="326" x2="1220" y2="326"
         stroke="#312e81" stroke-width="1" opacity="0.6"/>
 
-  <!-- Feature pills -->
-  <g font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
-     font-size="20" fill="#a78bfa" opacity="0.85">
-    <text x="784" y="418">Ableton Live  ·  E1.31 multicast  ·  WLED / ESP32</text>
-    <text x="784" y="460">Go server  ·  React PWA  ·  No DMX interface needed</text>
-  </g>
+  <!-- Tagline at 26px ~34 chars ≈ 476px → right edge ≈ 1080 (no period) -->
+  <text x="604" y="366"
+        font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+        font-size="26" font-weight="400" letter-spacing="0.5"
+        fill="#818cf8" opacity="0.9">The edge where sound becomes light</text>
 
 </svg>
