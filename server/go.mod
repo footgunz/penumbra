@@ -9,4 +9,5 @@ require (
 
 require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 )
