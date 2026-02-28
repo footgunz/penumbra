@@ -6,8 +6,7 @@
     "plugin:@typescript-eslint/recommended"
   ],
   "parserOptions": {
-    "ecmaVersion": 6,
-    "project": "./tsconfig.json"
+    "ecmaVersion": 6
   },
   "globals": {
     "post": "readonly",
