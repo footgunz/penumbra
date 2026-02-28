@@ -125,8 +125,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: server-*
           path: artifacts/
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: device-amxd
+          path: artifacts/
       - name: Publish
         uses: softprops/action-gh-release@v2
         with:
