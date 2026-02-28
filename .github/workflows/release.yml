@@ -89,7 +89,7 @@ jobs:
         run: >
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -o ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }} ./...
+          go build -o ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }} .
         working-directory: server
       - uses: actions/upload-artifact@v4
         with:
@@ -110,7 +110,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter device-scripts build
-      - run: pnpm pack
+      - run: pnpm run pack
       - uses: actions/upload-artifact@v4
         with:
           name: device-amxd
