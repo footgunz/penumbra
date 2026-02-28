@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Penumbra" width="160" />
+</p>
+
 # Penumbra
 
 > The edge where sound becomes light.
@@ -52,7 +56,7 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 
 ```bash
 # Clone and install
-git clone https://github.com/yourname/penumbra
+git clone https://github.com/footgunz/penumbra
 cd penumbra
 task install
 
