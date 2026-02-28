@@ -1,0 +1,43 @@
+{
+  "name": "@ableton-dmx/electron",
+  "version": "0.0.1",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/**/*.ts",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "@ableton-dmx/protocol-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.yourname.ableton-dmx",
+    "productName": "Ableton DMX",
+    "extraResources": [
+      {
+        "from": "../server/ableton-dmx-server",
+        "to": "server"
+      }
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

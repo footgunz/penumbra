@@ -1,0 +1,38 @@
+{
+  "name": "example-scene",
+  "frames": [
+    {
+      "offset_ms": 0,
+      "state": {
+        "track1_dimmer": 0.0,
+        "track1_red": 0.0,
+        "track1_green": 0.0,
+        "track1_blue": 0.0,
+        "master_dimmer": 1.0
+      }
+    },
+    {
+      "offset_ms": 1000,
+      "state": {
+        "track1_dimmer": 1.0,
+        "track1_red": 1.0,
+        "track1_green": 0.0,
+        "track1_blue": 0.0
+      }
+    },
+    {
+      "offset_ms": 2000,
+      "state": {
+        "track1_red": 0.0,
+        "track1_green": 0.0,
+        "track1_blue": 1.0
+      }
+    },
+    {
+      "offset_ms": 3000,
+      "state": {
+        "track1_dimmer": 0.0
+      }
+    }
+  ]
+}

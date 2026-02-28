@@ -1,0 +1,16 @@
+{
+  "name": "ableton-dmx",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "watch": "pnpm -r --parallel watch",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "pack": "scripts/pack.sh",
+    "unpack": "scripts/unpack.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
