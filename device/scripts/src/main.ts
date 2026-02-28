@@ -37,32 +37,65 @@ function udpSend(bytes: number[]): void {
 
 var emitter = createEmitter(udpSend)
 
+// ─── Track-change observer ────────────────────────────────────────────────────
+// Resets the session ID whenever tracks are added or deleted so the server
+// knows to discard accumulated state from the previous session layout.
+
+var liveSet = new LiveAPI(function(args) {
+  if (args[0] === 'tracks') {
+    emitter.resetSession()
+    post('Penumbra: track change detected — session reset\n')
+  }
+}, 'live_set')
+
 // ─── LOM read ────────────────────────────────────────────────────────────────
+//
+// mixer_device.volume, .panning, and .sends[n] are DeviceParameter child
+// objects. Calling get('volume') on the mixer returns the parameter's id, not
+// its value. Navigate to the DeviceParameter path and read 'value', 'min',
+// 'max' separately, then normalise to 0.0–1.0.
+
+function normParam(paramPath: string): number {
+  var p = new LiveAPI(null, paramPath)
+  var val = p.get('value')[0] as number
+  var min = p.get('min')[0] as number
+  var max = p.get('max')[0] as number
+  if (max <= min) { return 0 }
+  var n = (val - min) / (max - min)
+  if (n < 0) { return 0 }
+  if (n > 1) { return 1 }
+  return n
+}
+
+function readTrackParams(trackPath: string): void {
+  var track = new LiveAPI(null, trackPath)
+  var rawName = track.get('name')[0] as string
+  var safeName = rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+  var mixerPath = trackPath + ' mixer_device'
+  var mixer = new LiveAPI(null, mixerPath)
+
+  emitter.setParam(safeName + '_volume', normParam(mixerPath + ' volume'))
+  emitter.setParam(safeName + '_pan',    normParam(mixerPath + ' panning'))
+
+  var sendCount = mixer.getcount('sends')
+  for (var s = 0; s < sendCount; s++) {
+    emitter.setParam(safeName + '_send_' + s, normParam(mixerPath + ' sends ' + s))
+  }
+}
 
 function readLOM(): void {
   try {
-    var api = new LiveAPI(null, 'live_set')
-    var trackCount = api.getcount('tracks')
+    var root = new LiveAPI(null, 'live_set')
+
+    var trackCount = root.getcount('tracks')
     for (var i = 0; i < trackCount; i++) {
-      api.goto('live_set tracks ' + i)
-      var trackName = api.get('name')[0] as string
-      var safeName = trackName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
-
-      // Read volume from mixer_device
-      var mixerPath = 'live_set tracks ' + i + ' mixer_device'
-      var mixer = new LiveAPI(null, mixerPath)
-      var vol = mixer.get('volume')[0] as number
-      emitter.setParam(safeName + '_volume', vol)
-
-      // Read send levels
-      var sendCount = mixer.getcount('sends')
-      for (var s = 0; s < sendCount; s++) {
-        var sendPath = mixerPath + ' sends ' + s
-        var send = new LiveAPI(null, sendPath)
-        var sendVal = send.get('value')[0] as number
-        emitter.setParam(safeName + '_send_' + s, sendVal)
-      }
+      readTrackParams('live_set tracks ' + i)
     }
+
+    // Return tracks (reverb/delay sends) could be added here if needed:
+    // for (var r = 0; r < root.getcount('return_tracks'); r++) {
+    //   readTrackParams('live_set return_tracks ' + r, 'return_')
+    // }
   } catch (e) {
     post('M4L LOM read error:', e, '\n')
   }
