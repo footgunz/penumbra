@@ -9,9 +9,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@ableton-dmx/e131": "workspace:*",
-    "@ableton-dmx/protocol-types": "workspace:*",
-    "@ableton-dmx/state": "workspace:*"
+    "@msgpack/msgpack": "^3.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",

@@ -2,6 +2,9 @@
 
 This file provides persistent project context. Read this before making any changes.
 
+**GitHub:** https://github.com/footgunz/penumbra
+**Go module:** `github.com/footgunz/penumbra`
+
 ---
 
 ## What This Project Is
@@ -88,8 +91,14 @@ See `PROTOCOL.md` for full spec. Key points:
 - Universe → IP mapping in `server/config.json`
 
 **Server ↔ UI (WebSocket, port 3000)**
-- Message types: `session`, `state`, `diff`, `status`, `set_config`, `hotkey`
+- WebSocket message types (server → UI): `session`, `state`, `diff`, `status`
+- WebSocket message types (UI → server): `hotkey` (forwarded from Electron IPC or keyboard)
+- Config updates via REST: `POST /api/config` — JSON body, updates `server/config.json`
 - Go serves PWA static bundle on same port via embedded `embed.FS`
+
+**Config update pattern**
+- `POST /api/config` with JSON body — updates universe and parameter mapping, persists to `server/config.json`
+- The `SetConfigMessage` type in protocol-types is defined but not currently handled over WebSocket
 
 **Hotkey pattern**
 - Electron global shortcuts → IPC → renderer synthetic event
@@ -126,40 +135,48 @@ See `PROTOCOL.md` for full spec. Key points:
 │   ├── ws/
 │   │   └── hub.go             # WebSocket hub, broadcast to UI clients
 │   ├── api/
-│   │   └── routes.go          # HTTP routes, serve embedded UI
+│   │   └── routes.go          # HTTP routes, serve embedded UI, POST /api/config
 │   ├── config/
 │   │   └── config.go          # Universe registry, parameter map, persistence
+│   ├── ui/
+│   │   ├── fs.go              # embed.FS exposed as package ui — imported by api/
+│   │   └── dist/              # Vite build output — gitignored, embedded at compile time
 │   ├── config.json            # Universe + parameter mapping (committed)
-│   ├── embed.go               # embed.FS declaration for UI bundle
+│   ├── embed.go               # embed.FS declaration (main package, unused by api)
 │   ├── go.mod
 │   └── go.sum
 │
 ├── ui/                        # Vite/React PWA
 │   ├── src/
 │   │   ├── App.tsx
+│   │   ├── main.tsx           # React root mount
 │   │   ├── ws/                # WebSocket client, message handling
 │   │   ├── hotkeys/           # Hotkey system — agnostic to source
 │   │   ├── components/
 │   │   └── types/             # TypeScript types matching Go wire format
 │   ├── public/
 │   │   └── manifest.json      # PWA manifest
+│   ├── index.html
 │   ├── vite.config.ts
 │   ├── tsconfig.json
 │   └── package.json
 │
 ├── electron/                  # Thin native shell — optional
-│   ├── main.ts                # Window, global shortcuts, tray, spawn server
+│   ├── src/
+│   │   └── main.ts            # Window, global shortcuts, tray, spawn server
 │   ├── tsconfig.json
 │   └── package.json
 │
 ├── packages/
 │   └── protocol-types/        # Shared TS types (UI + Electron only)
 │       ├── index.ts           # WebSocket message types
+│       ├── tsconfig.json
 │       └── package.json
 │
 ├── tools/
 │   └── fake-emitter/          # Replaces M4L for dev — no Live license needed
 │       ├── main.go            # Static + animated modes
+│       ├── go.mod
 │       ├── scenes/            # JSON scene files for scripted mode (future)
 │       │   └── example.json
 │       └── README.md
@@ -173,6 +190,7 @@ See `PROTOCOL.md` for full spec. Key points:
 │   └── release.yml
 │
 ├── .gitignore
+├── .npmrc                     # approve-builds=false; esbuild allowed via package.json
 ├── package.json               # Root — pnpm workspaces (TS packages only)
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
@@ -190,9 +208,9 @@ Single binary, statically linked. No external runtime dependencies.
 
 Configuration via env vars: `UDP_PORT=7000`, `WS_PORT=3000`
 
-Universe and parameter mapping loaded from `server/config.json` at startup. Updated via `set_config` WebSocket message and written back to disk. This file is committed to the repo as the default configuration.
+Universe and parameter mapping loaded from `server/config.json` at startup. Updated via `POST /api/config` and written back to disk. This file is committed to the repo as the default configuration.
 
-The UI bundle (`ui/dist/`) is embedded at compile time via `embed.FS` in `embed.go`. The Go server serves it at `/` alongside the WebSocket at `/ws`.
+The UI bundle (`server/ui/dist/`) is embedded at compile time. `server/ui/fs.go` declares `package ui` with an `embed.FS` that the `api` package imports directly. `server/embed.go` also embeds it into the main package (unused by api; harmless). The Go server serves the UI at `/` and WebSocket at `/ws`.
 
 For headless deployment: `Dockerfile` and `systemd` unit in `server/deploy/`.
 
@@ -201,13 +219,16 @@ Cross-compile for Pi:
 GOOS=linux GOARCH=arm64 go build -o ableton-dmx-server ./...
 ```
 
+Go module path: `github.com/footgunz/penumbra`
+Fake emitter module: `github.com/footgunz/penumbra/tools/fake-emitter`
+
 ### Go package responsibilities
 
 - **udp/** — decode incoming MessagePack, validate session_id, emit state events
 - **state/** — maintain state mirror, compute diffs, detect session changes
 - **e131/** — build E1.31 packets, manage per-universe sequence numbers, send multicast
 - **ws/** — WebSocket hub, broadcast messages to connected UI clients
-- **api/** — HTTP router, serve embedded UI, handle `set_config`
+- **api/** — HTTP router, serve embedded UI, handle `POST /api/config`
 - **config/** — load/save config.json, universe registry, parameter map
 
 ---
@@ -230,8 +251,8 @@ M4L is intentionally simple. Its only job is to read Live Object Model state and
 
 `lib/emitter.ts`:
 - Maintains current parameter state map
-- Generates/persists `session_id` (regenerated on track add/delete)
-- Serializes to MessagePack on each tick
+- Generates `session_id` (UUID v4 via Math.random — no crypto in Max SpiderMonkey); regenerated on track add/delete
+- Serializes to MessagePack via `@msgpack/msgpack` (bundled by esbuild) on each tick
 - No diff logic, no universe awareness, no E1.31
 
 ### Build
@@ -242,6 +263,8 @@ pnpm --filter device-scripts watch   # rebuild on save → Max reloads via autow
 ```
 
 Do not use ES2017+ syntax in any M4L source file (`async/await`, `?.`, `??`, etc.).
+
+`build.mjs` uses `platform: 'neutral'` and must include `mainFields: ['module', 'main']` so that npm packages with non-exports `package.json` fields (like `@msgpack/msgpack`) resolve correctly. Do not remove this.
 
 ---
 

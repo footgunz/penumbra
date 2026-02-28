@@ -5,12 +5,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/yourusername/ableton-dmx/api"
-	"github.com/yourusername/ableton-dmx/config"
-	"github.com/yourusername/ableton-dmx/e131"
-	"github.com/yourusername/ableton-dmx/state"
-	"github.com/yourusername/ableton-dmx/udp"
-	"github.com/yourusername/ableton-dmx/ws"
+	"github.com/footgunz/penumbra/api"
+	"github.com/footgunz/penumbra/config"
+	"github.com/footgunz/penumbra/e131"
+	"github.com/footgunz/penumbra/state"
+	"github.com/footgunz/penumbra/udp"
+	"github.com/footgunz/penumbra/ws"
 )
 
 func main() {

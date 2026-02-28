@@ -1,12 +1,13 @@
 package e131
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"math"
 	"net"
 
-	"github.com/yourusername/ableton-dmx/config"
+	"github.com/footgunz/penumbra/config"
 )
 
 const (
@@ -142,10 +143,12 @@ func encodeSourceName(name string) []byte {
 }
 
 func generateCID() [16]byte {
-	// In production, use crypto/rand. This is a placeholder.
 	var cid [16]byte
-	for i := range cid {
-		cid[i] = byte(i + 1)
+	if _, err := rand.Read(cid[:]); err != nil {
+		// Fallback: deterministic bytes (should not happen)
+		for i := range cid {
+			cid[i] = byte(i + 1)
+		}
 	}
 	return cid
 }

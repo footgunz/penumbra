@@ -8,6 +8,7 @@ const config = {
   outfile: 'dist/main.js',
   target: 'es6',
   platform: 'neutral',
+  mainFields: ['module', 'main'],
   format: 'iife',
   // Max does not support ES modules — everything must be bundled into one
   // self-contained IIFE. Shared packages (@ableton-dmx/*) are bundled in.
