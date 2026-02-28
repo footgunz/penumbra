@@ -33,7 +33,7 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 
 - **Live session → DMX** — map any Live parameter to any DMX channel
 - **E1.31 multicast** — native WLED protocol, no intermediate DMX interface needed
-- **Single Go binary** — runs on Mac, Linux, or a Raspberry Pi with no runtime dependencies
+- **Single Go binary** — runs on Mac, Linux, or Windows with no runtime dependencies
 - **PWA UI** — monitor and configure from any browser on the network
 - **Electron shell** — optional native app with global hotkeys that fire even when unfocused
 - **Fake emitter** — develop and test the full stack without a Live license
@@ -45,7 +45,7 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 | Component | Requirement |
 |-----------|-------------|
 | M4L device | Ableton Live 11+ with Max for Live |
-| Server | macOS, Linux, or Raspberry Pi (arm64) |
+| Server | macOS, Linux, or Windows (any arch Go supports) |
 | UI | Any modern browser |
 | Hardware | WLED-flashed ESP32, reachable by multicast |
 | Dev tooling | Go 1.22+, Node 20+, pnpm 9+, [Task](https://taskfile.dev) |
@@ -106,7 +106,7 @@ Parameter names match the names you give your Live tracks and devices. The serve
 
 **Local** — Electron spawns the server automatically. Download from Releases.
 
-**Headless (Pi)** — copy the binary, start it with systemd:
+**Headless (Linux)** — copy the binary, start it with systemd (works on any Linux, including Raspberry Pi arm64):
 
 ```bash
 scp penumbra-server-linux-arm64 pi@yourpi:~/penumbra-server
