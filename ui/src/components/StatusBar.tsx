@@ -2,9 +2,10 @@ import type { StatusMessage } from '../types'
 
 interface Props {
   status: StatusMessage | null
+  sessionId: string | null
 }
 
-export function StatusBar({ status }: Props) {
+export function StatusBar({ status, sessionId }: Props) {
   const connected = status?.m4l_connected ?? false
   const lastSeen = status?.m4l_last_seen
   const universeCount = status ? Object.keys(status.universes).length : 0
@@ -20,6 +21,9 @@ export function StatusBar({ status }: Props) {
       </span>
       <span style={styles.meta}>Last seen: {lastSeenStr}</span>
       <span style={styles.meta}>{universeCount} universe{universeCount !== 1 ? 's' : ''}</span>
+      {sessionId && (
+        <span style={styles.session}>session: {sessionId}</span>
+      )}
     </div>
   )
 }
@@ -43,5 +47,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   meta: {
     color: '#aaa',
+  },
+  session: {
+    color: '#555',
+    marginLeft: 'auto',
+    fontSize: 11,
   },
 }

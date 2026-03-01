@@ -16,6 +16,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -119,8 +120,12 @@ func initAnimated() {
 func main() {
 	mode := flag.String("mode", "animated", "Emitter mode: static | animated | stress")
 	target := flag.String("target", "localhost:7000", "Server UDP address")
-	sessionID := flag.String("session", "fake-session-001", "Session ID")
+	sessionID := flag.String("session", "", "Session ID (default: generated from timestamp)")
 	flag.Parse()
+
+	if *sessionID == "" {
+		*sessionID = fmt.Sprintf("fake-%d", time.Now().UnixMilli())
+	}
 
 	if *mode == "animated" {
 		initAnimated()

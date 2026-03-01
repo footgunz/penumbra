@@ -8,6 +8,7 @@ import { UniverseList } from './components/UniverseList'
 export function App() {
   const [params, setParams] = useState<Record<string, number>>({})
   const [status, setStatus] = useState<StatusMessage | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const pendingDiffs = useRef<Record<string, number>>({})
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export function App() {
       switch (msg.type) {
         case 'state':
           pendingDiffs.current = {}
+          setSessionId(msg.session_id)
           setParams(msg.state)
           break
         case 'diff':
@@ -38,6 +40,7 @@ export function App() {
           break
         case 'session':
           pendingDiffs.current = {}
+          setSessionId(msg.session_id)
           setParams({})
           break
         case 'status':
@@ -54,7 +57,7 @@ export function App() {
 
   return (
     <div style={styles.root}>
-      <StatusBar status={status} />
+      <StatusBar status={status} sessionId={sessionId} />
       <div style={styles.body}>
         <section style={styles.section}>
           <h2 style={styles.heading}>Parameters</h2>
