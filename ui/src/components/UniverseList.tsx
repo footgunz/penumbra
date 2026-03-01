@@ -16,6 +16,9 @@ export function UniverseList({ status }: Props) {
     <div style={styles.list}>
       {entries.map(([id, u]) => (
         <div key={id} style={styles.row}>
+          <span style={{ ...styles.badge, background: u.online ? '#22c55e' : '#555' }}>
+            {u.online ? 'online' : 'offline'}
+          </span>
           <span style={styles.label}>Universe {id}: {u.label}</span>
           <span style={styles.ip}>{u.ip}</span>
         </div>
@@ -37,6 +40,15 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
+  },
+  badge: {
+    padding: '2px 8px',
+    borderRadius: 4,
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 600,
+    minWidth: 52,
+    textAlign: 'center',
   },
   label: {
     color: '#ccc',

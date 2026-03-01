@@ -27,10 +27,11 @@ type Hub struct {
 
 	// Internal state mirror — kept in sync by parsing broadcast messages.
 	// Allows sending a full state snapshot to newly connected clients.
-	stateMu   sync.Mutex
-	sessionID string
-	lastState map[string]float64
-	lastTs    int64
+	stateMu       sync.Mutex
+	sessionID     string
+	lastState     map[string]float64
+	lastTs        int64
+	universeOnline map[string]bool
 
 	// Rate-limiter for status broadcasts
 	lastStatus time.Time
@@ -46,12 +47,13 @@ type client struct {
 // NewHub creates an idle Hub. Call Run() in a goroutine to activate it.
 func NewHub(cfg *config.Config) *Hub {
 	return &Hub{
-		clients:    make(map[*client]struct{}),
-		broadcast:  make(chan []byte, 256),
-		register:   make(chan *client),
-		unregister: make(chan *client),
-		cfg:        cfg,
-		lastState:  make(map[string]float64),
+		clients:        make(map[*client]struct{}),
+		broadcast:      make(chan []byte, 256),
+		register:       make(chan *client),
+		unregister:     make(chan *client),
+		cfg:            cfg,
+		lastState:      make(map[string]float64),
+		universeOnline: make(map[string]bool),
 	}
 }
 
@@ -121,9 +123,31 @@ func (h *Hub) MaybebroadcastStatus(sessionID string) {
 	h.mu.Unlock()
 }
 
+// SetUniverseOnline updates the online state for a universe and broadcasts
+// a fresh status message to all connected clients.
+func (h *Hub) SetUniverseOnline(id string, online bool) {
+	h.stateMu.Lock()
+	h.universeOnline[id] = online
+	h.stateMu.Unlock()
+
+	msg := h.buildStatusMessage()
+	h.mu.Lock()
+	for c := range h.clients {
+		select {
+		case c.send <- msg:
+		default:
+		}
+	}
+	h.mu.Unlock()
+}
+
 func (h *Hub) buildStatusMessage() []byte {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
+	universeOnline := make(map[string]bool, len(h.universeOnline))
+	for k, v := range h.universeOnline {
+		universeOnline[k] = v
+	}
 	h.stateMu.Unlock()
 
 	connected := !lastSeen.IsZero() && time.Since(lastSeen) < 5*time.Second
@@ -133,12 +157,13 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 
 	type universeStatus struct {
-		Label string `json:"label"`
-		IP    string `json:"ip"`
+		Label  string `json:"label"`
+		IP     string `json:"ip"`
+		Online bool   `json:"online"`
 	}
 	universes := make(map[string]universeStatus, len(h.cfg.Universes))
 	for id, u := range h.cfg.Universes {
-		universes[id] = universeStatus{Label: u.Label, IP: u.IP}
+		universes[id] = universeStatus{Label: u.Label, IP: u.IP, Online: universeOnline[id]}
 	}
 
 	msg := struct {

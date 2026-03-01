@@ -10,6 +10,7 @@ import (
 	"github.com/footgunz/penumbra/e131"
 	"github.com/footgunz/penumbra/state"
 	"github.com/footgunz/penumbra/udp"
+	"github.com/footgunz/penumbra/wled"
 	"github.com/footgunz/penumbra/ws"
 )
 
@@ -41,6 +42,11 @@ func main() {
 	})
 
 	go receiver.Listen()
+
+	prober := wled.NewProber(cfg, func(id string, online bool) {
+		hub.SetUniverseOnline(id, online)
+	})
+	go prober.Run()
 
 	router := api.NewRouter(hub, cfg, wsPort)
 	log.Printf("Listening on :%d (UDP) and :%d (HTTP/WS)", udpPort, wsPort)
