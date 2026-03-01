@@ -22,7 +22,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	hub := ws.NewHub()
+	hub := ws.NewHub(cfg)
 	go hub.Run()
 
 	stateMirror := state.NewMirror(func(diff state.Diff) {

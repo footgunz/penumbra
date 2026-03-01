@@ -31,7 +31,6 @@ export interface DiffMessage {
 export interface UniverseStatus {
   label: string
   ip: string
-  active: boolean
 }
 
 /** Connection and universe health */

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/footgunz/penumbra/config"
 	"github.com/gorilla/websocket"
 )
 
@@ -21,6 +22,8 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *client
 	unregister chan *client
+
+	cfg *config.Config
 
 	// Internal state mirror — kept in sync by parsing broadcast messages.
 	// Allows sending a full state snapshot to newly connected clients.
@@ -41,13 +44,14 @@ type client struct {
 }
 
 // NewHub creates an idle Hub. Call Run() in a goroutine to activate it.
-func NewHub() *Hub {
+func NewHub(cfg *config.Config) *Hub {
 	return &Hub{
-		clients:   make(map[*client]struct{}),
-		broadcast: make(chan []byte, 256),
-		register:  make(chan *client),
+		clients:    make(map[*client]struct{}),
+		broadcast:  make(chan []byte, 256),
+		register:   make(chan *client),
 		unregister: make(chan *client),
-		lastState: make(map[string]float64),
+		cfg:        cfg,
+		lastState:  make(map[string]float64),
 	}
 }
 
@@ -128,16 +132,25 @@ func (h *Hub) buildStatusMessage() []byte {
 		lastSeenMs = lastSeen.UnixMilli()
 	}
 
+	type universeStatus struct {
+		Label string `json:"label"`
+		IP    string `json:"ip"`
+	}
+	universes := make(map[string]universeStatus, len(h.cfg.Universes))
+	for id, u := range h.cfg.Universes {
+		universes[id] = universeStatus{Label: u.Label, IP: u.IP}
+	}
+
 	msg := struct {
-		Type         string      `json:"type"`
-		M4LConnected bool        `json:"m4l_connected"`
-		M4LLastSeen  int64       `json:"m4l_last_seen"`
-		Universes    interface{} `json:"universes"`
+		Type         string                    `json:"type"`
+		M4LConnected bool                      `json:"m4l_connected"`
+		M4LLastSeen  int64                     `json:"m4l_last_seen"`
+		Universes    map[string]universeStatus  `json:"universes"`
 	}{
 		Type:         "status",
 		M4LConnected: connected,
 		M4LLastSeen:  lastSeenMs,
-		Universes:    map[string]interface{}{},
+		Universes:    universes,
 	}
 	data, _ := json.Marshal(msg)
 	return data
