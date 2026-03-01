@@ -101,6 +101,28 @@ func (p *animParam) advance(r *rand.Rand) float64 {
 	return p.value
 }
 
+// ── Single-instance lock ───────────────────────────────────────────────────
+//
+// acquireLock opens a well-known lock file and acquires an exclusive,
+// non-blocking flock on it. The OS releases the lock automatically when the
+// process exits, so no cleanup is needed even on a crash.
+
+const lockFile = "/tmp/penumbra-fake-emitter.lock"
+
+func acquireLock() *os.File {
+	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		log.Fatalf("cannot open lock file: %v", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		log.Fatal("another fake emitter instance is already running — kill it first")
+	}
+	return f
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 var (
 	animRand   *rand.Rand
 	animParams map[string]*animParam
@@ -118,6 +140,9 @@ func initAnimated() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func main() {
+	lock := acquireLock()
+	defer lock.Close()
+
 	mode := flag.String("mode", "animated", "Emitter mode: static | animated | stress")
 	target := flag.String("target", "localhost:7000", "Server UDP address")
 	sessionID := flag.String("session", "", "Session ID (default: generated from timestamp)")
