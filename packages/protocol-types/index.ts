@@ -30,7 +30,7 @@ export interface DiffMessage {
 
 export interface UniverseStatus {
   label: string
-  ip: string
+  device_ip: string
   online: boolean
 }
 
@@ -47,7 +47,7 @@ export type ServerMessage = SessionMessage | StateMessage | DiffMessage | Status
 // ─── UI → Server ──────────────────────────────────────────────────────────────
 
 export interface UniverseConfig {
-  ip: string
+  device_ip: string
   label: string
 }
 

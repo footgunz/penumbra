@@ -8,15 +8,17 @@ import (
 // Config holds universe and parameter mapping.
 // Loaded from config.json at startup; updated via set_config WebSocket message.
 type Config struct {
-	Universes  map[string]UniverseConfig  `json:"universes"`
+	Universes  map[int]UniverseConfig     `json:"universes"`
 	Parameters map[string]ParameterConfig `json:"parameters"`
 	path       string
 }
 
-// UniverseConfig maps a universe number (string key) to its target IP and label.
+// UniverseConfig maps a universe number (integer key) to its WLED device IP and label.
+// DeviceIP is the unicast LAN address used for HTTP health probing — not the E1.31
+// multicast destination, which is derived from the universe number directly.
 type UniverseConfig struct {
-	IP    string `json:"ip"`
-	Label string `json:"label"`
+	DeviceIP string `json:"device_ip"`
+	Label    string `json:"label"`
 }
 
 // ChannelTarget identifies a single DMX channel within a universe.
@@ -32,7 +34,7 @@ type ParameterConfig []ChannelTarget
 // Load reads config from path. Returns an empty-but-valid Config if the file does not exist.
 func Load(path string) (*Config, error) {
 	cfg := &Config{
-		Universes:  make(map[string]UniverseConfig),
+		Universes:  make(map[int]UniverseConfig),
 		Parameters: make(map[string]ParameterConfig),
 		path:       path,
 	}

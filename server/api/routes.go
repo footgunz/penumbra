@@ -17,6 +17,7 @@ import (
 //
 // Routes:
 //   GET /ws          → WebSocket upgrade
+//   GET /api/config  → Return current config as JSON
 //   POST /api/config → Update universe/parameter mapping and persist
 //   GET /            → Serve embedded Vite/React PWA (ui/dist)
 func NewRouter(hub *ws.Hub, cfg *config.Config, port int) *http.Server {
@@ -25,40 +26,51 @@ func NewRouter(hub *ws.Hub, cfg *config.Config, port int) *http.Server {
 	// WebSocket endpoint
 	mux.HandleFunc("/ws", hub.ServeWS)
 
-	// Config update endpoint
+	// Config endpoint — GET returns current config, POST updates it
 	mux.HandleFunc("/api/config", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		switch r.Method {
+		case http.MethodGet:
+			data, err := json.MarshalIndent(cfg, "", "  ")
+			if err != nil {
+				http.Error(w, "marshal error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(data)
+
+		case http.MethodPost:
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "read error", http.StatusBadRequest)
+				return
+			}
+			var update struct {
+				Universes  map[int]config.UniverseConfig     `json:"universes"`
+				Parameters map[string]config.ParameterConfig `json:"parameters"`
+			}
+			if err := json.Unmarshal(body, &update); err != nil {
+				http.Error(w, "invalid JSON", http.StatusBadRequest)
+				return
+			}
+			if update.Universes != nil {
+				cfg.Universes = update.Universes
+			}
+			if update.Parameters != nil {
+				cfg.Parameters = update.Parameters
+			}
+			if err := cfg.Save(); err != nil {
+				log.Printf("api: config save: %v", err)
+				http.Error(w, "save error", http.StatusInternalServerError)
+				return
+			}
+			hub.BroadcastStatus()
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"ok":true}`))
+
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
 		}
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "read error", http.StatusBadRequest)
-			return
-		}
-		var update struct {
-			Universes  map[string]config.UniverseConfig  `json:"universes"`
-			Parameters map[string]config.ParameterConfig `json:"parameters"`
-		}
-		if err := json.Unmarshal(body, &update); err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-		if update.Universes != nil {
-			cfg.Universes = update.Universes
-		}
-		if update.Parameters != nil {
-			cfg.Parameters = update.Parameters
-		}
-		if err := cfg.Save(); err != nil {
-			log.Printf("api: config save: %v", err)
-			http.Error(w, "save error", http.StatusInternalServerError)
-			return
-		}
-		hub.BroadcastStatus()
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ok":true}`))
 	})
 
 	// Serve embedded UI — strip the "dist" prefix so "/" maps to "dist/index.html"

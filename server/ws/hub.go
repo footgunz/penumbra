@@ -31,7 +31,7 @@ type Hub struct {
 	sessionID     string
 	lastState     map[string]float64
 	lastTs        int64
-	universeOnline map[string]bool
+	universeOnline map[int]bool
 
 	// Rate-limiter for status broadcasts
 	lastStatus time.Time
@@ -53,7 +53,7 @@ func NewHub(cfg *config.Config) *Hub {
 		unregister:     make(chan *client),
 		cfg:            cfg,
 		lastState:      make(map[string]float64),
-		universeOnline: make(map[string]bool),
+		universeOnline: make(map[int]bool),
 	}
 }
 
@@ -139,7 +139,7 @@ func (h *Hub) BroadcastStatus() {
 
 // SetUniverseOnline updates the online state for a universe and broadcasts
 // a fresh status message to all connected clients.
-func (h *Hub) SetUniverseOnline(id string, online bool) {
+func (h *Hub) SetUniverseOnline(id int, online bool) {
 	h.stateMu.Lock()
 	h.universeOnline[id] = online
 	h.stateMu.Unlock()
@@ -149,7 +149,7 @@ func (h *Hub) SetUniverseOnline(id string, online bool) {
 func (h *Hub) buildStatusMessage() []byte {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
-	universeOnline := make(map[string]bool, len(h.universeOnline))
+	universeOnline := make(map[int]bool, len(h.universeOnline))
 	for k, v := range h.universeOnline {
 		universeOnline[k] = v
 	}
@@ -162,20 +162,20 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 
 	type universeStatus struct {
-		Label  string `json:"label"`
-		IP     string `json:"ip"`
-		Online bool   `json:"online"`
+		Label    string `json:"label"`
+		DeviceIP string `json:"device_ip"`
+		Online   bool   `json:"online"`
 	}
-	universes := make(map[string]universeStatus, len(h.cfg.Universes))
+	universes := make(map[int]universeStatus, len(h.cfg.Universes))
 	for id, u := range h.cfg.Universes {
-		universes[id] = universeStatus{Label: u.Label, IP: u.IP, Online: universeOnline[id]}
+		universes[id] = universeStatus{Label: u.Label, DeviceIP: u.DeviceIP, Online: universeOnline[id]}
 	}
 
 	msg := struct {
-		Type         string                    `json:"type"`
-		M4LConnected bool                      `json:"m4l_connected"`
-		M4LLastSeen  int64                     `json:"m4l_last_seen"`
-		Universes    map[string]universeStatus  `json:"universes"`
+		Type         string                 `json:"type"`
+		M4LConnected bool                   `json:"m4l_connected"`
+		M4LLastSeen  int64                  `json:"m4l_last_seen"`
+		Universes    map[int]universeStatus  `json:"universes"`
 	}{
 		Type:         "status",
 		M4LConnected: connected,
