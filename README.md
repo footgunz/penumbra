@@ -48,7 +48,9 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 | Server | macOS, Linux, or Windows (any arch Go supports) |
 | UI | Any modern browser |
 | Hardware | WLED-flashed ESP32, reachable by multicast |
-| Dev tooling | Go 1.22+, Node 20+, pnpm 9+, [Task](https://taskfile.dev) |
+| Dev tooling | Go 1.25+, Node 20+, pnpm 10+, [Task](https://taskfile.dev) |
+
+A `.nvmrc` is provided — run `nvm use` after cloning and Node 20 will be selected automatically. Node 20 is a hard requirement: Tailwind v4's native Rust engine (`@tailwindcss/oxide`) will not install on earlier versions.
 
 ---
 
@@ -145,7 +147,7 @@ See `CLAUDE.md` for full architecture documentation and `PROTOCOL.md` for the wi
 
 - **M4L device** — TypeScript → ES6, compiled with esbuild
 - **Server** — Go, single binary, embeds the UI bundle
-- **UI** — Vite + React, PWA, WebSocket
+- **UI** — Vite + React + Tailwind v4 + shadcn/ui, PWA, WebSocket
 - **Electron** — thin native shell, global hotkeys only
 - **Hardware** — WLED on ESP32, E1.31 / sACN
 

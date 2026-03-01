@@ -5,6 +5,7 @@ import { StatusBar } from './components/StatusBar'
 import { ParameterGrid } from './components/ParameterGrid'
 import { UniverseList } from './components/UniverseList'
 import { ConfigEditor } from './components/ConfigEditor'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 type Tab = 'monitor' | 'configure'
 
@@ -60,100 +61,73 @@ export function App() {
   }, [])
 
   return (
-    <div style={styles.root}>
+    <div className="min-h-dvh bg-background text-text flex flex-col">
       <StatusBar status={status} sessionId={sessionId} />
-      <div style={styles.tabBar}>
-        <button
-          style={tab === 'monitor' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('monitor')}
+
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as Tab)}
+        className="flex flex-col flex-1 overflow-hidden"
+      >
+        {/* Desktop tab bar — top, hidden on mobile */}
+        <TabsList
+          variant="line"
+          className="hidden md:flex w-full justify-start rounded-none border-b border-border bg-background px-2 h-10"
         >
-          Monitor
-        </button>
-        <button
-          style={tab === 'configure' ? styles.tabActive : styles.tab}
-          onClick={() => setTab('configure')}
+          <TabsTrigger value="monitor" className="uppercase tracking-wider text-xs font-semibold">
+            Monitor
+          </TabsTrigger>
+          <TabsTrigger value="configure" className="uppercase tracking-wider text-xs font-semibold">
+            Configure
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Monitor tab */}
+        <TabsContent
+          value="monitor"
+          className="flex-col md:flex-row flex-1 overflow-hidden pb-14 md:pb-0 data-[state=active]:flex"
         >
-          Configure
-        </button>
-      </div>
-      {tab === 'monitor' ? (
-        <div style={styles.body}>
-          <section style={styles.section}>
-            <h2 style={styles.heading}>Parameters</h2>
+          <section className="flex-1 overflow-y-auto border-b md:border-b-0 md:border-r border-border">
+            <h2 className="sticky top-0 z-10 bg-background px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-dim border-b border-border">
+              Parameters
+            </h2>
             <ParameterGrid params={params} />
           </section>
-          <section style={styles.section}>
-            <h2 style={styles.heading}>Universes</h2>
+          <section className="flex-1 overflow-y-auto">
+            <h2 className="sticky top-0 z-10 bg-background px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-dim border-b border-border">
+              Universes
+            </h2>
             <UniverseList status={status} />
           </section>
-        </div>
-      ) : (
-        <ConfigEditor />
-      )}
+        </TabsContent>
+
+        {/* Configure tab */}
+        <TabsContent
+          value="configure"
+          className="flex-1 overflow-hidden pb-14 md:pb-0 data-[state=active]:flex"
+        >
+          <ConfigEditor />
+        </TabsContent>
+
+        {/* Mobile tab bar — bottom, fixed, hidden on desktop */}
+        <TabsList
+          variant="line"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex w-full rounded-none border-t border-border bg-surface h-14 px-2"
+        >
+          <TabsTrigger
+            value="monitor"
+            className="flex-1 uppercase tracking-wider text-xs font-semibold"
+          >
+            Monitor
+          </TabsTrigger>
+          <TabsTrigger
+            value="configure"
+            className="flex-1 uppercase tracking-wider text-xs font-semibold"
+          >
+            Configure
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
     </div>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  root: {
-    minHeight: '100vh',
-    background: '#0f0f1a',
-    color: '#eee',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  tabBar: {
-    display: 'flex',
-    flexDirection: 'row',
-    borderBottom: '1px solid #222',
-    background: '#0f0f1a',
-  },
-  tab: {
-    background: 'none',
-    border: 'none',
-    borderBottom: '2px solid transparent',
-    color: '#666',
-    cursor: 'pointer',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: 1,
-    padding: '8px 20px',
-    textTransform: 'uppercase' as const,
-  },
-  tabActive: {
-    background: 'none',
-    border: 'none',
-    borderBottom: '2px solid #6366f1',
-    color: '#eee',
-    cursor: 'pointer',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: 1,
-    padding: '8px 20px',
-    textTransform: 'uppercase' as const,
-  },
-  body: {
-    display: 'flex',
-    flexDirection: 'row',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  section: {
-    flex: 1,
-    overflowY: 'auto',
-    borderRight: '1px solid #222',
-  },
-  heading: {
-    margin: 0,
-    padding: '12px 16px',
-    fontSize: 13,
-    fontFamily: 'monospace',
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    color: '#888',
-    borderBottom: '1px solid #222',
-    letterSpacing: 1,
-  },
 }
