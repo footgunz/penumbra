@@ -140,13 +140,16 @@ func initAnimated() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func main() {
-	lock := acquireLock()
-	defer lock.Close()
-
 	mode := flag.String("mode", "animated", "Emitter mode: static | animated | stress")
 	target := flag.String("target", "localhost:7000", "Server UDP address")
 	sessionID := flag.String("session", "", "Session ID (default: generated from timestamp)")
+	noLock := flag.Bool("no-lock", false, "Skip single-instance lock (for testing/debug)")
 	flag.Parse()
+
+	if !*noLock {
+		lock := acquireLock()
+		defer lock.Close()
+	}
 
 	if *sessionID == "" {
 		*sessionID = fmt.Sprintf("fake-%d", time.Now().UnixMilli())
