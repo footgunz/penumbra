@@ -2,11 +2,17 @@ package state
 
 import (
 	"encoding/json"
+	"math"
 	"sync"
 	"time"
 
 	"github.com/footgunz/penumbra/udp"
 )
+
+// minDelta is the minimum change in a normalised 0–1 parameter value that
+// counts as a meaningful diff. Set to one DMX step (1/255 ≈ 0.004) so that
+// sub-step floating-point noise does not generate spurious broadcasts.
+const minDelta = 1.0 / 255
 
 // Diff represents changed parameters in a single tick, or a session announcement.
 type Diff struct {
@@ -80,10 +86,12 @@ func (m *Mirror) Update(pkt udp.StatePacket) bool {
 
 	changes := make(map[string]float64)
 	for k, v := range pkt.State {
-		if cur, ok := m.state[k]; !ok || cur != v {
+		cur, ok := m.state[k]
+		if !ok || math.Abs(v-cur) >= minDelta {
 			changes[k] = v
 		}
 	}
+
 	// Detect parameters that disappeared (set to 0)
 	for k := range m.state {
 		if _, ok := pkt.State[k]; !ok {
