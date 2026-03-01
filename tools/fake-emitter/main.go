@@ -23,9 +23,11 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -103,22 +105,21 @@ func (p *animParam) advance(r *rand.Rand) float64 {
 
 // ── Single-instance lock ───────────────────────────────────────────────────
 //
-// acquireLock opens a well-known lock file and acquires an exclusive,
-// non-blocking flock on it. The OS releases the lock automatically when the
-// process exits, so no cleanup is needed even on a crash.
+// acquireLock uses gofrs/flock for cross-platform exclusive file locking
+// (flock(2) on Unix, LockFileEx on Windows). The lock is released automatically
+// when the process exits, so no cleanup is needed even on a crash.
 
-const lockFile = "/tmp/penumbra-fake-emitter.lock"
-
-func acquireLock() *os.File {
-	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0o600)
+func acquireLock() *flock.Flock {
+	path := filepath.Join(os.TempDir(), "penumbra-fake-emitter.lock")
+	fl := flock.New(path)
+	locked, err := fl.TryLock()
 	if err != nil {
-		log.Fatalf("cannot open lock file: %v", err)
+		log.Fatalf("cannot acquire lock file: %v", err)
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		f.Close()
+	if !locked {
 		log.Fatal("another fake emitter instance is already running — kill it first")
 	}
-	return f
+	return fl
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ func main() {
 
 	if !*noLock {
 		lock := acquireLock()
-		defer lock.Close()
+		defer lock.Unlock()
 	}
 
 	if *sessionID == "" {
