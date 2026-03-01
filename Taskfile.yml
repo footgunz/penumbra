@@ -166,7 +166,7 @@ tasks:
         task fake TARGET=192.168.1.50:7000      # remote server
         task fake MODE=animated SESSION=test-1  # custom session ID
     cmds:
-      - go run . --mode {{.MODE | default "animated"}} --target {{.TARGET | default "localhost:{{.UDP_PORT}}"}} --session {{.SESSION | default "fake-session-001"}}
+      - go run . --mode {{.MODE | default "animated"}} --target {{if .TARGET}}{{.TARGET}}{{else}}localhost:{{.UDP_PORT}}{{end}} --session {{.SESSION | default "fake-session-001"}}
     dir: '{{.EMITTER_DIR}}'
 
   fake:static:
