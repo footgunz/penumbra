@@ -124,6 +124,17 @@ tasks:
     cmds:
       - pnpm test
 
+  playwright:
+    desc: Run Playwright browser tests (requires Go server on :3000)
+    summary: |
+      Starts the Vite dev server if not already running, then runs Playwright.
+      Prerequisite: Go server must be running on port 3000.
+        task server:dev   # in one terminal
+        task fake         # in another terminal (or use M4L)
+        task playwright   # in a third terminal
+    cmds:
+      - pnpm --filter ui run playwright
+
   # ── Lint / Typecheck ──────────────────────────────────────────────────────────
 
   lint:

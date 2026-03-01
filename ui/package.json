@@ -9,7 +9,7 @@
     "lint": "eslint src/**/*.ts src/**/*.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "playwright": "playwright test"
+    "playwright": "playwright test --pass-with-no-tests"
   },
   "dependencies": {
     "@ableton-dmx/protocol-types": "workspace:*",
