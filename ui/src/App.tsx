@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ServerMessage, StatusMessage } from './types'
 import { client } from './ws/client'
 import { StatusBar } from './components/StatusBar'
@@ -8,6 +8,8 @@ import { UniverseList } from './components/UniverseList'
 export function App() {
   const [params, setParams] = useState<Record<string, number>>({})
   const [status, setStatus] = useState<StatusMessage | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const pendingDiffs = useRef<Record<string, number>>({})
 
   useEffect(() => {
     const wsUrl =
@@ -16,16 +18,29 @@ export function App() {
         : `ws://${window.location.host}/ws`
     client.connect(wsUrl)
 
+    // Flush buffered diffs at 100ms — longer than the 80ms CSS bar transition so
+    // animations complete cleanly between updates and the text is readable.
+    const flushInterval = setInterval(() => {
+      const pending = pendingDiffs.current
+      if (Object.keys(pending).length > 0) {
+        pendingDiffs.current = {}
+        setParams((prev) => ({ ...prev, ...pending }))
+      }
+    }, 100)
+
     const unsub = client.onMessage((msg: ServerMessage) => {
       switch (msg.type) {
         case 'state':
+          pendingDiffs.current = {}
+          setSessionId(msg.session_id)
           setParams(msg.state)
           break
         case 'diff':
-          setParams((prev) => ({ ...prev, ...msg.changes }))
+          Object.assign(pendingDiffs.current, msg.changes)
           break
         case 'session':
-          // New session — clear params until next state arrives
+          pendingDiffs.current = {}
+          setSessionId(msg.session_id)
           setParams({})
           break
         case 'status':
@@ -34,12 +49,15 @@ export function App() {
       }
     })
 
-    return unsub
+    return () => {
+      unsub()
+      clearInterval(flushInterval)
+    }
   }, [])
 
   return (
     <div style={styles.root}>
-      <StatusBar status={status} />
+      <StatusBar status={status} sessionId={sessionId} />
       <div style={styles.body}>
         <section style={styles.section}>
           <h2 style={styles.heading}>Parameters</h2>

@@ -6,7 +6,8 @@
 //
 // Usage:
 //   go run . --mode static                  # fixed values
-//   go run . --mode animated                # sweeps values over time
+//   go run . --mode animated                # independent random walks per parameter
+//   go run . --mode stress                  # fast sine sweeps for load testing
 //   go run . --mode scripted --scene scenes/example.json  # replay JSON scene (future)
 //   go run . --target 192.168.1.50:7000     # target a remote server
 
@@ -15,8 +16,10 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -43,11 +46,118 @@ var defaultParameters = []string{
 	"master_dimmer",
 }
 
+// ── Animated mode: independent random walk per parameter ──────────────────
+//
+// Each parameter moves linearly toward a randomly chosen target. When it
+// arrives it picks a new target that is at least minSwing away, guaranteeing
+// every sweep is visibly large. Speed varies per parameter so they never
+// converge or synchronise. No sine waves — no periodic convergence to 0.5.
+
+const (
+	minSwing = 0.35 // minimum distance between consecutive targets
+	minSpeed = 0.08 // units/s — full range in ~12.5s
+	maxSpeed = 0.20 // units/s — full range in ~5s
+)
+
+type animParam struct {
+	value  float64
+	target float64
+	speed  float64 // units per second
+}
+
+func newAnimParam(r *rand.Rand) animParam {
+	value := r.Float64()
+	return animParam{
+		value:  value,
+		target: pickTarget(value, r),
+		speed:  minSpeed + r.Float64()*(maxSpeed-minSpeed),
+	}
+}
+
+// pickTarget returns a random value at least minSwing away from current.
+func pickTarget(current float64, r *rand.Rand) float64 {
+	for {
+		t := r.Float64()
+		if math.Abs(t-current) >= minSwing {
+			return t
+		}
+	}
+}
+
+// advance moves the parameter one 40ms tick toward its target.
+// Returns the current value after the move.
+func (p *animParam) advance(r *rand.Rand) float64 {
+	const dt = 0.04
+	diff := p.target - p.value
+	step := p.speed * dt
+	if math.Abs(diff) <= step {
+		p.value = p.target
+		p.target = pickTarget(p.value, r)
+	} else if diff > 0 {
+		p.value += step
+	} else {
+		p.value -= step
+	}
+	return p.value
+}
+
+// ── Single-instance lock ───────────────────────────────────────────────────
+//
+// acquireLock opens a well-known lock file and acquires an exclusive,
+// non-blocking flock on it. The OS releases the lock automatically when the
+// process exits, so no cleanup is needed even on a crash.
+
+const lockFile = "/tmp/penumbra-fake-emitter.lock"
+
+func acquireLock() *os.File {
+	f, err := os.OpenFile(lockFile, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		log.Fatalf("cannot open lock file: %v", err)
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		log.Fatal("another fake emitter instance is already running — kill it first")
+	}
+	return f
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+var (
+	animRand   *rand.Rand
+	animParams map[string]*animParam
+)
+
+func initAnimated() {
+	animRand = rand.New(rand.NewSource(time.Now().UnixNano()))
+	animParams = make(map[string]*animParam, len(defaultParameters))
+	for _, p := range defaultParameters {
+		ap := newAnimParam(animRand)
+		animParams[p] = &ap
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 func main() {
-	mode := flag.String("mode", "animated", "Emitter mode: static | animated")
+	mode := flag.String("mode", "animated", "Emitter mode: static | animated | stress")
 	target := flag.String("target", "localhost:7000", "Server UDP address")
-	sessionID := flag.String("session", "fake-session-001", "Session ID")
+	sessionID := flag.String("session", "", "Session ID (default: generated from timestamp)")
+	noLock := flag.Bool("no-lock", false, "Skip single-instance lock (for testing/debug)")
 	flag.Parse()
+
+	if !*noLock {
+		lock := acquireLock()
+		defer lock.Close()
+	}
+
+	if *sessionID == "" {
+		*sessionID = fmt.Sprintf("fake-%d", time.Now().UnixMilli())
+	}
+
+	if *mode == "animated" {
+		initAnimated()
+	}
 
 	addr, err := net.ResolveUDPAddr("udp", *target)
 	if err != nil {
@@ -102,14 +212,20 @@ func buildState(mode string, elapsed float64) map[string]float64 {
 
 	switch mode {
 	case "static":
-		// Fixed mid-value for all parameters — good for plumbing tests
+		// Fixed mid-value for all parameters — good for plumbing tests.
 		for _, p := range defaultParameters {
 			state[p] = 0.5
 		}
 
 	case "animated":
-		// Each parameter sweeps at a slightly different rate
-		// Produces visible, varied output on real hardware
+		// Independent random walk: each parameter moves toward its own target
+		// and picks a new one on arrival. No periodicity, no convergence to 0.5.
+		for _, p := range defaultParameters {
+			state[p] = animParams[p].advance(animRand)
+		}
+
+	case "stress":
+		// Fast sine sweeps for load/hardware testing.
 		for i, p := range defaultParameters {
 			phase := float64(i) * (math.Pi / float64(len(defaultParameters)))
 			rate := 0.2 + float64(i)*0.05
@@ -123,8 +239,8 @@ func buildState(mode string, elapsed float64) map[string]float64 {
 // Scene represents a scripted sequence of states (future JSON replay mode).
 // Defined here so the structure is established even before the feature is built.
 type Scene struct {
-	Name   string        `json:"name"`
-	Frames []SceneFrame  `json:"frames"`
+	Name   string       `json:"name"`
+	Frames []SceneFrame `json:"frames"`
 }
 
 type SceneFrame struct {
