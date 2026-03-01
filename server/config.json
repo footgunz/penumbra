@@ -1,6 +1,11 @@
 {
   "universes": {
-    "1": { "ip": "192.168.1.101", "label": "universe 1" }
+    "1": { "ip": "192.168.1.101", "label": "stage left" }
   },
-  "parameters": {}
+  "parameters": {
+    "track1_dimmer": [{ "universe": 1, "channel": 1 }],
+    "track1_red":    [{ "universe": 1, "channel": 2 }],
+    "track1_green":  [{ "universe": 1, "channel": 3 }],
+    "track1_blue":   [{ "universe": 1, "channel": 4 }]
+  }
 }
