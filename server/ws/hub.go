@@ -123,13 +123,9 @@ func (h *Hub) MaybebroadcastStatus(sessionID string) {
 	h.mu.Unlock()
 }
 
-// SetUniverseOnline updates the online state for a universe and broadcasts
-// a fresh status message to all connected clients.
-func (h *Hub) SetUniverseOnline(id string, online bool) {
-	h.stateMu.Lock()
-	h.universeOnline[id] = online
-	h.stateMu.Unlock()
-
+// BroadcastStatus sends a status message to all connected clients immediately,
+// without rate limiting. Use after intentional config changes.
+func (h *Hub) BroadcastStatus() {
 	msg := h.buildStatusMessage()
 	h.mu.Lock()
 	for c := range h.clients {
@@ -139,6 +135,15 @@ func (h *Hub) SetUniverseOnline(id string, online bool) {
 		}
 	}
 	h.mu.Unlock()
+}
+
+// SetUniverseOnline updates the online state for a universe and broadcasts
+// a fresh status message to all connected clients.
+func (h *Hub) SetUniverseOnline(id string, online bool) {
+	h.stateMu.Lock()
+	h.universeOnline[id] = online
+	h.stateMu.Unlock()
+	h.BroadcastStatus()
 }
 
 func (h *Hub) buildStatusMessage() []byte {

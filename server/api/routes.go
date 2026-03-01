@@ -55,6 +55,7 @@ func NewRouter(hub *ws.Hub, cfg *config.Config, port int) *http.Server {
 			http.Error(w, "save error", http.StatusInternalServerError)
 			return
 		}
+		hub.BroadcastStatus()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"ok":true}`))
