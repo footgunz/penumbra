@@ -19,11 +19,15 @@ type UniverseConfig struct {
 	Label string `json:"label"`
 }
 
-// ParameterConfig maps a named parameter to its E1.31 universe and DMX channel.
-type ParameterConfig struct {
+// ChannelTarget identifies a single DMX channel within a universe.
+type ChannelTarget struct {
 	Universe int `json:"universe"`
 	Channel  int `json:"channel"` // 1-indexed DMX channel
 }
+
+// ParameterConfig is the list of DMX targets driven by a single parameter.
+// A parameter may fan out to multiple universes and channels simultaneously.
+type ParameterConfig []ChannelTarget
 
 // Load reads config from path. Returns an empty-but-valid Config if the file does not exist.
 func Load(path string) (*Config, error) {

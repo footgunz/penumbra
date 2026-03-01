@@ -42,17 +42,19 @@ func (d *Dispatcher) Dispatch(state map[string]float64, cfg *config.Config) {
 	// Build per-universe DMX arrays
 	universes := make(map[int][]byte)
 	for paramName, value := range state {
-		mapping, ok := cfg.Parameters[paramName]
+		targets, ok := cfg.Parameters[paramName]
 		if !ok {
 			continue
 		}
-		u := mapping.Universe
-		if _, exists := universes[u]; !exists {
-			universes[u] = make([]byte, UniverseSize)
-		}
-		ch := mapping.Channel - 1 // channel is 1-indexed
-		if ch >= 0 && ch < UniverseSize {
-			universes[u][ch] = floatToDMX(value)
+		for _, t := range targets {
+			u := t.Universe
+			if _, exists := universes[u]; !exists {
+				universes[u] = make([]byte, UniverseSize)
+			}
+			ch := t.Channel - 1 // channel is 1-indexed
+			if ch >= 0 && ch < UniverseSize {
+				universes[u][ch] = floatToDMX(value)
+			}
 		}
 	}
 

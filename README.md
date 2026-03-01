@@ -89,13 +89,23 @@ Universe and parameter mappings live in `server/config.json` and are editable vi
 ```json
 {
   "universes": {
-    "1": { "ip": "192.168.1.101", "label": "stage left" }
+    "1": { "ip": "192.168.1.101", "label": "stage left" },
+    "2": { "ip": "192.168.1.102", "label": "stage right" }
   },
   "parameters": {
-    "track1_dimmer": { "universe": 1, "channel": 1 },
-    "track1_red":    { "universe": 1, "channel": 2 }
+    "track1_dimmer": [{ "universe": 1, "channel": 1 }],
+    "track1_red":    [{ "universe": 1, "channel": 2 }]
   }
 }
+```
+
+Each parameter maps to an **array** of channel targets, so a single parameter can fan out to multiple universes and channels simultaneously:
+
+```json
+"master_dimmer": [
+  { "universe": 1, "channel": 1 },
+  { "universe": 2, "channel": 1 }
+]
 ```
 
 Parameter names match the names you give your Live tracks and devices. The server resolves them dynamically — no recompilation needed when your session changes.
