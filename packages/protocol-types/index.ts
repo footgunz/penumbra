@@ -28,10 +28,17 @@ export interface DiffMessage {
   changes: Record<string, number>
 }
 
+export interface ChannelInfo {
+  channel: number  // DMX channel 1–512
+  param: string    // mapped parameter name
+  value: number    // DMX value 0–255
+}
+
 export interface UniverseStatus {
   label: string
   device_ip: string
   online: boolean
+  channels: ChannelInfo[]
 }
 
 /** Connection and universe health */

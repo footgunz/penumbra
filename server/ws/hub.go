@@ -3,7 +3,9 @@ package ws
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -100,10 +102,10 @@ func (h *Hub) Broadcast(msg []byte) {
 	h.broadcast <- msg
 }
 
-// MaybebroadcastStatus sends a status message to all clients, rate-limited to ~1/sec.
+// MaybebroadcastStatus sends a status message to all clients, rate-limited to ~100ms.
 func (h *Hub) MaybebroadcastStatus(sessionID string) {
 	h.stateMu.Lock()
-	if time.Since(h.lastStatus) < time.Second {
+	if time.Since(h.lastStatus) < 100*time.Millisecond {
 		h.stateMu.Unlock()
 		return
 	}
@@ -153,6 +155,10 @@ func (h *Hub) buildStatusMessage() []byte {
 	for k, v := range h.universeOnline {
 		universeOnline[k] = v
 	}
+	lastState := make(map[string]float64, len(h.lastState))
+	for k, v := range h.lastState {
+		lastState[k] = v
+	}
 	h.stateMu.Unlock()
 
 	connected := !lastSeen.IsZero() && time.Since(lastSeen) < 5*time.Second
@@ -161,21 +167,56 @@ func (h *Hub) buildStatusMessage() []byte {
 		lastSeenMs = lastSeen.UnixMilli()
 	}
 
-	type universeStatus struct {
-		Label    string `json:"label"`
-		DeviceIP string `json:"device_ip"`
-		Online   bool   `json:"online"`
+	type channelInfo struct {
+		Channel int    `json:"channel"`
+		Param   string `json:"param"`
+		Value   int    `json:"value"` // DMX value 0–255
 	}
+	type universeStatus struct {
+		Label    string        `json:"label"`
+		DeviceIP string        `json:"device_ip"`
+		Online   bool          `json:"online"`
+		Channels []channelInfo `json:"channels"`
+	}
+
+	// Build per-universe channel lists from current parameter state.
+	universeChannels := make(map[int][]channelInfo)
+	for paramName, targets := range h.cfg.Parameters {
+		value := lastState[paramName] // 0.0 if not yet received
+		dmx := int(math.Round(math.Max(0, math.Min(1, value)) * 255))
+		for _, t := range targets {
+			universeChannels[t.Universe] = append(universeChannels[t.Universe], channelInfo{
+				Channel: t.Channel,
+				Param:   paramName,
+				Value:   dmx,
+			})
+		}
+	}
+	for u := range universeChannels {
+		sort.Slice(universeChannels[u], func(i, j int) bool {
+			return universeChannels[u][i].Channel < universeChannels[u][j].Channel
+		})
+	}
+
 	universes := make(map[int]universeStatus, len(h.cfg.Universes))
 	for id, u := range h.cfg.Universes {
-		universes[id] = universeStatus{Label: u.Label, DeviceIP: u.DeviceIP, Online: universeOnline[id]}
+		channels := universeChannels[id]
+		if channels == nil {
+			channels = []channelInfo{}
+		}
+		universes[id] = universeStatus{
+			Label:    u.Label,
+			DeviceIP: u.DeviceIP,
+			Online:   universeOnline[id],
+			Channels: channels,
+		}
 	}
 
 	msg := struct {
-		Type         string                 `json:"type"`
-		M4LConnected bool                   `json:"m4l_connected"`
-		M4LLastSeen  int64                  `json:"m4l_last_seen"`
-		Universes    map[int]universeStatus  `json:"universes"`
+		Type         string                `json:"type"`
+		M4LConnected bool                  `json:"m4l_connected"`
+		M4LLastSeen  int64                 `json:"m4l_last_seen"`
+		Universes    map[int]universeStatus `json:"universes"`
 	}{
 		Type:         "status",
 		M4LConnected: connected,
