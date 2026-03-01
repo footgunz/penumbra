@@ -20,17 +20,17 @@ const (
 // whenever a device transitions between online and offline.
 type Prober struct {
 	cfg      *config.Config
-	onChange func(id string, online bool)
-	online   map[string]bool
+	onChange func(id int, online bool)
+	online   map[int]bool
 	client   *http.Client
 }
 
 // NewProber creates a Prober. Call Run() in a goroutine to start probing.
-func NewProber(cfg *config.Config, onChange func(id string, online bool)) *Prober {
+func NewProber(cfg *config.Config, onChange func(id int, online bool)) *Prober {
 	return &Prober{
 		cfg:      cfg,
 		onChange: onChange,
-		online:   make(map[string]bool),
+		online:   make(map[int]bool),
 		client:   &http.Client{Timeout: probeTimeout},
 	}
 }
@@ -47,7 +47,7 @@ func (p *Prober) Run() {
 
 func (p *Prober) probeAll() {
 	for id, u := range p.cfg.Universes {
-		online := p.probe(u.IP)
+		online := p.probe(u.DeviceIP)
 		was, seen := p.online[id]
 		if !seen || was != online {
 			p.online[id] = online

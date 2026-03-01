@@ -20,7 +20,7 @@ export function UniverseList({ status }: Props) {
             {u.online ? 'online' : 'offline'}
           </span>
           <span style={styles.label}>Universe {id}: {u.label}</span>
-          <span style={styles.ip}>{u.ip}</span>
+          <span style={styles.ip}>{u.device_ip}</span>
         </div>
       ))}
     </div>

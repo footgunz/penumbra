@@ -4,11 +4,15 @@ import { client } from './ws/client'
 import { StatusBar } from './components/StatusBar'
 import { ParameterGrid } from './components/ParameterGrid'
 import { UniverseList } from './components/UniverseList'
+import { ConfigEditor } from './components/ConfigEditor'
+
+type Tab = 'monitor' | 'configure'
 
 export function App() {
   const [params, setParams] = useState<Record<string, number>>({})
   const [status, setStatus] = useState<StatusMessage | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [tab, setTab] = useState<Tab>('monitor')
   const pendingDiffs = useRef<Record<string, number>>({})
 
   useEffect(() => {
@@ -58,16 +62,34 @@ export function App() {
   return (
     <div style={styles.root}>
       <StatusBar status={status} sessionId={sessionId} />
-      <div style={styles.body}>
-        <section style={styles.section}>
-          <h2 style={styles.heading}>Parameters</h2>
-          <ParameterGrid params={params} />
-        </section>
-        <section style={styles.section}>
-          <h2 style={styles.heading}>Universes</h2>
-          <UniverseList status={status} />
-        </section>
+      <div style={styles.tabBar}>
+        <button
+          style={tab === 'monitor' ? styles.tabActive : styles.tab}
+          onClick={() => setTab('monitor')}
+        >
+          Monitor
+        </button>
+        <button
+          style={tab === 'configure' ? styles.tabActive : styles.tab}
+          onClick={() => setTab('configure')}
+        >
+          Configure
+        </button>
       </div>
+      {tab === 'monitor' ? (
+        <div style={styles.body}>
+          <section style={styles.section}>
+            <h2 style={styles.heading}>Parameters</h2>
+            <ParameterGrid params={params} />
+          </section>
+          <section style={styles.section}>
+            <h2 style={styles.heading}>Universes</h2>
+            <UniverseList status={status} />
+          </section>
+        </div>
+      ) : (
+        <ConfigEditor />
+      )}
     </div>
   )
 }
@@ -79,6 +101,38 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#eee',
     display: 'flex',
     flexDirection: 'column',
+  },
+  tabBar: {
+    display: 'flex',
+    flexDirection: 'row',
+    borderBottom: '1px solid #222',
+    background: '#0f0f1a',
+  },
+  tab: {
+    background: 'none',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    color: '#666',
+    cursor: 'pointer',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: 1,
+    padding: '8px 20px',
+    textTransform: 'uppercase' as const,
+  },
+  tabActive: {
+    background: 'none',
+    border: 'none',
+    borderBottom: '2px solid #6366f1',
+    color: '#eee',
+    cursor: 'pointer',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: 1,
+    padding: '8px 20px',
+    textTransform: 'uppercase' as const,
   },
   body: {
     display: 'flex',

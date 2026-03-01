@@ -43,7 +43,7 @@ func main() {
 
 	go receiver.Listen()
 
-	prober := wled.NewProber(cfg, func(id string, online bool) {
+	prober := wled.NewProber(cfg, func(id int, online bool) {
 		hub.SetUniverseOnline(id, online)
 	})
 	go prober.Run()
