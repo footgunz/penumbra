@@ -114,14 +114,12 @@ func buildState(mode string, elapsed float64) map[string]float64 {
 		// different value and no two parameters move in lock-step.
 		// Golden-ratio phase spacing spreads all parameters across the full 0–1
 		// range at startup so they each start at a visibly different value.
-		// Rates 0.04–0.07 rad/s give half-cycles of 45–78s — large, slow sweeps
-		// that are clearly visible but take the better part of a minute to complete.
-		// At 40ms ticks the value shifts ~0.001–0.003 per packet; the server's
-		// minDelta threshold batches these into UI updates every few ticks.
+		// Rates 0.3–1.2 rad/s give half-cycles of 2.6–10.5s — clearly visible
+		// fades with no two parameters moving in lock-step.
 		const goldenAngle = 2.3999632 // 2π × (1 − 1/φ)
 		for i, p := range defaultParameters {
 			phase := float64(i) * goldenAngle
-			rate := 0.04 + float64(i)*0.002 // 0.04–0.07 rad/s → 45–78s half-cycle
+			rate := 0.3 + float64(i)*0.06 // 0.3–1.26 rad/s → 2.5–10.5s half-cycle
 			state[p] = (math.Sin(elapsed*rate+phase) + 1) / 2
 		}
 
