@@ -6,7 +6,8 @@
 //
 // Usage:
 //   go run . --mode static                  # fixed values
-//   go run . --mode animated                # sweeps values over time
+//   go run . --mode animated                # slow realistic sweeps (~60–120s per param)
+//   go run . --mode stress                  # fast sweeps for load testing (6–31s per param)
 //   go run . --mode scripted --scene scenes/example.json  # replay JSON scene (future)
 //   go run . --target 192.168.1.50:7000     # target a remote server
 
@@ -108,8 +109,17 @@ func buildState(mode string, elapsed float64) map[string]float64 {
 		}
 
 	case "animated":
-		// Each parameter sweeps at a slightly different rate
-		// Produces visible, varied output on real hardware
+		// Slow, realistic lighting shifts — each param drifts at a different pace.
+		// Rates 0.05–0.10 rad/s → full cycles of 63–126s, half-cycles of 31–63s.
+		// Perceptually similar to live performance fades and mood shifts.
+		for i, p := range defaultParameters {
+			phase := float64(i) * (math.Pi / float64(len(defaultParameters)))
+			rate := 0.05 + float64(i)*0.003
+			state[p] = (math.Sin(elapsed*rate+phase) + 1) / 2
+		}
+
+	case "stress":
+		// Fast sweeps for load/hardware testing — cycles every 6–31s.
 		for i, p := range defaultParameters {
 			phase := float64(i) * (math.Pi / float64(len(defaultParameters)))
 			rate := 0.2 + float64(i)*0.05

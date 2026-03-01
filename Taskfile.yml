@@ -157,12 +157,13 @@ tasks:
   # ── Fake Emitter ──────────────────────────────────────────────────────────────
 
   fake:
-    desc: Run fake emitter — MODE=static|animated TARGET=host:port
+    desc: Run fake emitter — MODE=static|animated|stress TARGET=host:port
     summary: |
       Replaces M4L for development. No Live license needed.
       Examples:
-        task fake                               # animated, localhost
+        task fake                               # animated (slow, realistic), localhost
         task fake MODE=static                   # fixed values
+        task fake MODE=stress                   # fast sweeps for load testing
         task fake TARGET=192.168.1.50:7000      # remote server
         task fake MODE=animated SESSION=test-1  # custom session ID
     cmds:
@@ -176,10 +177,16 @@ tasks:
         vars: { MODE: static }
 
   fake:animated:
-    desc: Run fake emitter in animated mode (sweeping values)
+    desc: Run fake emitter in animated mode (slow, realistic shifts)
     cmds:
       - task: fake
         vars: { MODE: animated }
+
+  fake:stress:
+    desc: Run fake emitter in stress mode (fast sweeps for load testing)
+    cmds:
+      - task: fake
+        vars: { MODE: stress }
 
   # ── Server ────────────────────────────────────────────────────────────────────
 
