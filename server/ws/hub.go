@@ -133,13 +133,12 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 
 	type universeStatus struct {
-		Label  string `json:"label"`
-		IP     string `json:"ip"`
-		Active bool   `json:"active"`
+		Label string `json:"label"`
+		IP    string `json:"ip"`
 	}
 	universes := make(map[string]universeStatus, len(h.cfg.Universes))
 	for id, u := range h.cfg.Universes {
-		universes[id] = universeStatus{Label: u.Label, IP: u.IP, Active: connected}
+		universes[id] = universeStatus{Label: u.Label, IP: u.IP}
 	}
 
 	msg := struct {
