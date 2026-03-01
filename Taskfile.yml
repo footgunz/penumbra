@@ -168,7 +168,7 @@ tasks:
         task fake MODE=animated SESSION=test-1  # custom session ID
     cmds:
       - go build -o fake-emitter .
-      - ./fake-emitter --mode {{.MODE | default "animated"}} --target {{if .TARGET}}{{.TARGET}}{{else}}localhost:{{.UDP_PORT}}{{end}} --session {{.SESSION | default "fake-session-001"}}
+      - ./fake-emitter --mode {{.MODE | default "animated"}} --target {{if .TARGET}}{{.TARGET}}{{else}}localhost:{{.UDP_PORT}}{{end}}{{if .SESSION}} --session {{.SESSION}}{{end}}
     dir: '{{.EMITTER_DIR}}'
 
   fake:static:
