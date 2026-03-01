@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import CodeMirror, { oneDark } from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
+import { Button } from '@/components/ui/button'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -51,92 +52,42 @@ export function ConfigEditor() {
   }, [value])
 
   return (
-    <div style={styles.root}>
-      <div style={styles.toolbar}>
-        <span style={styles.title}>Expert config editor</span>
-        <button
-          style={saveState === 'saving' ? styles.btnDisabled : styles.btn}
-          onClick={handleSave}
-          disabled={saveState === 'saving'}
-        >
-          {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
-        </button>
+    <>
+      {/* Mobile: show message instead of editor */}
+      <div className="md:hidden flex items-center justify-center flex-1 p-8 text-text-muted text-sm text-center">
+        Config editor is available on desktop (768px+).
       </div>
-      <div style={styles.editor}>
-        <CodeMirror
-          value={value}
-          onChange={setValue}
-          extensions={[json()]}
-          theme={oneDark}
-          style={{ height: '100%', fontSize: 13 }}
-          basicSetup={{ lineNumbers: true, foldGutter: true }}
-        />
-      </div>
-      {errorMsg && <div style={styles.error}>{errorMsg}</div>}
-    </div>
-  )
-}
 
-const styles: Record<string, React.CSSProperties> = {
-  root: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 16px',
-    borderBottom: '1px solid #222',
-    background: '#0f0f1a',
-  },
-  title: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: 600,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: '#888',
-  },
-  btn: {
-    background: '#6366f1',
-    border: 'none',
-    borderRadius: 4,
-    color: '#fff',
-    cursor: 'pointer',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: 600,
-    padding: '5px 14px',
-  },
-  btnDisabled: {
-    background: '#3b3d6e',
-    border: 'none',
-    borderRadius: 4,
-    color: '#999',
-    cursor: 'not-allowed',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: 600,
-    padding: '5px 14px',
-  },
-  editor: {
-    flex: 1,
-    overflow: 'auto',
-  },
-  error: {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: '#3d1515',
-    borderTop: '1px solid #6b1f1f',
-    color: '#f87171',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    padding: '8px 16px',
-    zIndex: 100,
-  },
+      {/* Desktop: full editor */}
+      <div className="hidden md:flex flex-col flex-1 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
+          <span className="text-xs font-semibold tracking-widest uppercase text-text-dim">
+            Expert config editor
+          </span>
+          <Button
+            size="sm"
+            disabled={saveState === 'saving'}
+            onClick={handleSave}
+          >
+            {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
+          </Button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <CodeMirror
+            value={value}
+            onChange={setValue}
+            extensions={[json()]}
+            theme={oneDark}
+            style={{ height: '100%', fontSize: 13 }}
+            basicSetup={{ lineNumbers: true, foldGutter: true }}
+          />
+        </div>
+        {errorMsg && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-error-border bg-error-bg text-error-text text-xs px-4 py-2">
+            {errorMsg}
+          </div>
+        )}
+      </div>
+    </>
+  )
 }

@@ -8,7 +8,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src/**/*", "index.html"],
   "exclude": ["node_modules", "dist"]
