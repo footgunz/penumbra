@@ -6,7 +6,10 @@
 
 > The edge where sound becomes light
 
-Penumbra bridges Ableton Live and DMX lighting hardware. An M4L device streams your session state in real time to a Go server, which drives WLED/ESP32 fixtures over E1.31 multicast. A PWA gives you monitoring and control from any device on the network — browser, phone, or native app.
+Penumbra bridges Ableton Live and DMX lighting hardware. An M4L device streams
+your session state in real time to a Go server, which drives WLED/ESP32
+fixtures over E1.31 multicast. A PWA gives you monitoring and control from any
+device on the network — browser, phone, or tablet.
 
 ---
 
@@ -17,7 +20,7 @@ Ableton Live + M4L
        │
        │  UDP · MessagePack · 40ms
        ▼
-   Penumbra Server  ◄────────────────  Browser / PWA / Electron
+   Penumbra Server  ◄────────────────  Browser / PWA
    (Go · single binary)                WebSocket
        │
        │  E1.31 multicast
@@ -25,7 +28,12 @@ Ableton Live + M4L
   WLED · ESP32 · DMX
 ```
 
-The M4L device is a dumb emitter — it reads your session parameters and broadcasts full state every tick. The server handles everything else: diff detection, universe partitioning, E1.31 packet construction, and WebSocket fanout to the UI.
+The M4L device is a dumb emitter — it reads your session parameters and
+broadcasts full state every tick. The server handles everything else: diff
+detection, universe partitioning, E1.31 packet construction, and WebSocket
+fanout to the UI.
+
+See [docs/architecture.md](docs/architecture.md) for a detailed breakdown.
 
 ---
 
@@ -33,9 +41,8 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 
 - **Live session → DMX** — map any Live parameter to any DMX channel
 - **E1.31 multicast** — native WLED protocol, no intermediate DMX interface needed
-- **Single Go binary** — runs on Mac, Linux, or Windows with no runtime dependencies
+- **Single Go binary** — runs on Mac, Linux, or Raspberry Pi with no runtime dependencies
 - **PWA UI** — monitor and configure from any browser on the network
-- **Electron shell** — optional native app with global hotkeys that fire even when unfocused
 - **Fake emitter** — develop and test the full stack without a Live license
 
 ---
@@ -50,96 +57,34 @@ The M4L device is a dumb emitter — it reads your session parameters and broadc
 | Hardware | WLED-flashed ESP32, reachable by multicast |
 | Dev tooling | Go 1.25+, Node 20+, pnpm 10+, [Task](https://taskfile.dev) |
 
-A `.nvmrc` is provided — run `nvm use` after cloning and Node 20 will be selected automatically. Node 20 is a hard requirement: Tailwind v4's native Rust engine (`@tailwindcss/oxide`) will not install on earlier versions.
+A `.nvmrc` is provided — run `nvm use` after cloning.
 
 ---
 
 ## Getting started
 
 ```bash
-# Clone and install
 git clone https://github.com/footgunz/penumbra
-cd penumbra
-task install
-
-# Start the server (with live reload)
-task server:dev
-
-# Start the UI dev server (proxies /ws to Go)
-task watch:ui
-
-# No Live license? Run the fake emitter instead of M4L
-task fake
+cd penumbra && nvm use && task install
+task server:dev   # Go server
+task watch:ui     # Vite UI (http://localhost:5173)
+task fake         # fake emitter (no Live license needed)
 ```
 
-Open `http://localhost:5173` to see the UI.
+See [docs/development.md](docs/development.md) for the full dev guide.
 
 ---
 
-## M4L device
+## Docs
 
-The `.amxd` device is available on the [Releases](../../releases) page. Drop it into an Ableton Live set, configure the server IP if running remotely, and it will start streaming immediately.
-
-For M4L development, see [device/scripts/README.md](device/scripts/README.md).
-
----
-
-## Configuration
-
-Universe and parameter mappings live in `server/config.json` and are editable via the UI:
-
-```json
-{
-  "universes": {
-    "1": { "ip": "192.168.1.101", "label": "stage left" },
-    "2": { "ip": "192.168.1.102", "label": "stage right" }
-  },
-  "parameters": {
-    "track1_dimmer": [{ "universe": 1, "channel": 1 }],
-    "track1_red":    [{ "universe": 1, "channel": 2 }]
-  }
-}
-```
-
-Each parameter maps to an **array** of channel targets, so a single parameter can fan out to multiple universes and channels simultaneously:
-
-```json
-"master_dimmer": [
-  { "universe": 1, "channel": 1 },
-  { "universe": 2, "channel": 1 }
-]
-```
-
-Parameter names match the names you give your Live tracks and devices. The server resolves them dynamically — no recompilation needed when your session changes.
-
----
-
-## Deployment
-
-**Local** — Electron spawns the server automatically. Download from Releases.
-
-**Headless (Linux)** — copy the binary, start it with systemd (works on any Linux, including Raspberry Pi arm64):
-
-```bash
-scp penumbra-server-linux-arm64 pi@yourpi:~/penumbra-server
-# systemd unit in server/deploy/penumbra.service
-```
-
-The server embeds the UI — point a browser at `http://yourpi:3000`.
-
----
-
-## Development
-
-```bash
-task build          # build everything
-task test           # run all tests
-task ci             # full local CI (lint + typecheck + test + build)
-task fake           # fake emitter, animated mode
-task fake MODE=static TARGET=192.168.1.50:7000
-```
-
-See `CLAUDE.md` for full architecture documentation and `PROTOCOL.md` for the wire format.
+| Document | Description |
+|----------|-------------|
+| [architecture.md](docs/architecture.md) | System overview, component responsibilities, data flow |
+| [protocol.md](docs/protocol.md) | Wire format — UDP, E1.31, WebSocket |
+| [config.md](docs/config.md) | `config.json` schema reference |
+| [development.md](docs/development.md) | Dev setup, fake emitter, task reference |
+| [deployment.md](docs/deployment.md) | Headless Linux/Pi setup and deployment |
+| [m4l-device.md](docs/m4l-device.md) | M4L device internals and build |
 
 ---
 
@@ -148,7 +93,6 @@ See `CLAUDE.md` for full architecture documentation and `PROTOCOL.md` for the wi
 - **M4L device** — TypeScript → ES6, compiled with esbuild
 - **Server** — Go, single binary, embeds the UI bundle
 - **UI** — Vite + React + Tailwind v4 + shadcn/ui, PWA, WebSocket
-- **Electron** — thin native shell, global hotkeys only
 - **Hardware** — WLED on ESP32, E1.31 / sACN
 
 ---

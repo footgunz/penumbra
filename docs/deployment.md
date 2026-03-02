@@ -2,16 +2,6 @@
 
 ---
 
-## Local mode (Electron)
-
-Download the Electron app from the [Releases](https://github.com/footgunz/penumbra/releases)
-page. It bundles the Go server and launches it automatically on startup.
-
-The app serves the UI at `http://localhost:3000`. Global hotkeys work even
-when the window is not focused.
-
----
-
 ## Headless mode (Linux / Raspberry Pi)
 
 Run the Go binary directly — no Electron, no Node, no dependencies.
@@ -85,6 +75,15 @@ sudo systemctl start penumbra
 |----------|---------|-------------|
 | `UDP_PORT` | `7000` | Port to receive M4L state packets |
 | `WS_PORT` | `3000` | Port for WebSocket, HTTP, and embedded UI |
+
+---
+
+## Electron (planned)
+
+A native Electron shell is planned that will bundle the Go server and launch
+it automatically. It will add global hotkeys (firing even when the window is
+unfocused) and a system tray icon. The Electron shell is deprioritized for now
+— the headless binary covers all current use cases.
 
 ---
 
