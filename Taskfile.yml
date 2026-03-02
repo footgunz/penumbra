@@ -133,7 +133,7 @@ tasks:
         task fake         # in another terminal (or use M4L)
         task playwright   # in a third terminal
     cmds:
-      - pnpm --filter ui run playwright
+      - pnpm --filter ui playwright
 
   # ── Lint / Typecheck ──────────────────────────────────────────────────────────
 
