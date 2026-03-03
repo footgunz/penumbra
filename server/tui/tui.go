@@ -122,7 +122,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m *Model) setFocus(f focus) {
 	m.focus = f
-	if f == focusParams {
+	if f == focusParams || f == focusUniverses {
 		m.filter.Focus()
 	} else {
 		m.filter.Blur()
@@ -137,7 +137,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "q":
-			if m.focus != focusParams {
+			if m.focus == focusLog {
 				m.quitting = true
 				return m, tea.Quit
 			}
@@ -233,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	switch m.focus {
-	case focusParams:
+	case focusParams, focusUniverses:
 		m.filter, cmd = m.filter.Update(msg)
 	case focusLog:
 		m.logViewport, cmd = m.logViewport.Update(msg)
@@ -279,9 +279,12 @@ type channelEntry struct {
 	value   float64
 }
 
-func (m Model) channelsForUniverse(uid int) []channelEntry {
+func (m Model) channelsForUniverse(uid int, filter string) []channelEntry {
 	var entries []channelEntry
 	for param, targets := range m.configMap {
+		if filter != "" && !strings.Contains(strings.ToLower(param), filter) {
+			continue
+		}
 		for _, t := range targets {
 			if t.Universe != uid {
 				continue
@@ -359,7 +362,7 @@ func (m Model) View() string {
 		univTab = activeTabStyle.Render("▸Universes ")
 	}
 	b.WriteString(" " + paramTab + "  " + univTab)
-	if m.focus == focusParams {
+	if m.focus == focusParams || m.focus == focusUniverses {
 		b.WriteString("  " + m.filter.View())
 	}
 	b.WriteByte('\n')
@@ -448,6 +451,7 @@ func (m Model) viewParams(b *strings.Builder, maxLines int) {
 
 func (m Model) viewUniverses(b *strings.Builder, maxLines int) {
 	uIDs := m.sortedUniverseIDs()
+	filter := strings.ToLower(m.filter.Value())
 
 	nameW := 28
 	chBarW := 10
@@ -457,13 +461,16 @@ func (m Model) viewUniverses(b *strings.Builder, maxLines int) {
 	}
 
 	lines := 0
+	shown := 0
 	for _, id := range uIDs {
+		channels := m.channelsForUniverse(id, filter)
+		if filter != "" && len(channels) == 0 {
+			continue
+		}
+
 		if lines >= maxLines {
-			remaining := len(uIDs) - lines
-			if remaining > 0 {
-				b.WriteString(dimStyle.Render(fmt.Sprintf(" ... %d more universes", remaining)))
-				b.WriteByte('\n')
-			}
+			b.WriteString(dimStyle.Render(" ..."))
+			b.WriteByte('\n')
 			break
 		}
 
@@ -482,8 +489,8 @@ func (m Model) viewUniverses(b *strings.Builder, maxLines int) {
 		}
 		b.WriteByte('\n')
 		lines++
+		shown++
 
-		channels := m.channelsForUniverse(id)
 		for _, ch := range channels {
 			if lines >= maxLines {
 				b.WriteString(dimStyle.Render("     ..."))
@@ -508,8 +515,12 @@ func (m Model) viewUniverses(b *strings.Builder, maxLines int) {
 			lines++
 		}
 	}
-	if len(uIDs) == 0 {
-		b.WriteString(dimStyle.Render(" No universes configured"))
+	if shown == 0 {
+		if len(uIDs) == 0 {
+			b.WriteString(dimStyle.Render(" No universes configured"))
+		} else {
+			b.WriteString(dimStyle.Render(" No universes match filter"))
+		}
 		b.WriteByte('\n')
 	}
 }
