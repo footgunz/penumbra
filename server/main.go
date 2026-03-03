@@ -41,8 +41,8 @@ func main() {
 	var program *tea.Program
 	if tuiMode {
 		m := tui.New(
-			func() { hub.Blackout() },
-			func() { hub.Reset() },
+			func() { go hub.Blackout() },
+			func() { go hub.Reset() },
 		)
 		program = tea.NewProgram(m, tea.WithAltScreen())
 		log.SetOutput(tui.NewLogWriter(program))
@@ -66,12 +66,12 @@ func main() {
 			}
 			dispatcher.Dispatch(scene, cfg)
 			if program != nil {
-				program.Send(tui.BlackoutMsg(true))
+				go program.Send(tui.BlackoutMsg(true))
 			}
 		},
 		func() {
 			if program != nil {
-				program.Send(tui.BlackoutMsg(false))
+				go program.Send(tui.BlackoutMsg(false))
 			}
 		},
 	)
