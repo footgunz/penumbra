@@ -20,7 +20,7 @@ Ableton Live + M4L Device
         │
         │  UDP unicast (MessagePack) — full state every tick
         ▼
-    Go Server  ──────────────────────── PWA / Electron UI
+    Go Server  ──────────────────────── PWA / UI
         │        WebSocket + HTTP        (Vite/React)
         │
         │  E1.31 multicast per universe
@@ -29,6 +29,8 @@ Ableton Live + M4L Device
 ```
 
 **M4L is a dumb state emitter.** It sends full state every tick with no diff logic, no keyframes, no universe awareness. All intelligence lives in the Go server.
+
+> For a human-readable architecture overview, see [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -77,7 +79,7 @@ The only thing requiring the performance machine is verifying LOM subscriptions 
 
 ## Protocol
 
-See `PROTOCOL.md` for full spec. Key points:
+See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 
 **M4L → Server (UDP, port 7000)**
 - Full state every tick (~40ms), MessagePack
@@ -195,7 +197,13 @@ See `PROTOCOL.md` for full spec. Key points:
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 ├── Taskfile.yml
-├── PROTOCOL.md
+├── docs/
+│   ├── architecture.md
+│   ├── protocol.md
+│   ├── config.md
+│   ├── deployment.md
+│   ├── development.md
+│   └── m4l-device.md
 ├── CLAUDE.md
 └── README.md
 ```
