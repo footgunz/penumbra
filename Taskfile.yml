@@ -62,14 +62,14 @@ tasks:
     desc: Build Go server and fake emitter
     deps: [build:ui]  # UI must be built first for embed.FS
     cmds:
-      - go build -o ableton-dmx-server .
+      - go build -o penumbra-server .
       - cd ../{{.EMITTER_DIR}} && go build ./...
     dir: '{{.SERVER_DIR}}'
     sources:
       - '{{.SERVER_DIR}}/**/*.go'
       - 'ui/dist/**'
     generates:
-      - '{{.SERVER_DIR}}/ableton-dmx-server'
+      - '{{.SERVER_DIR}}/penumbra-server'
 
   build:ts:
     desc: Build all TypeScript packages
@@ -222,7 +222,7 @@ tasks:
   server:
     desc: Run Go server (requires built binary)
     cmds:
-      - ./ableton-dmx-server
+      - ./penumbra-server
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
@@ -231,8 +231,8 @@ tasks:
   server:tui:
     desc: Run Go server with TUI dashboard
     cmds:
-      - go build -o ableton-dmx-server .
-      - ./ableton-dmx-server --tui
+      - go build -o penumbra-server .
+      - ./penumbra-server --tui
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
@@ -241,8 +241,8 @@ tasks:
   server:dev:
     desc: Run Go server in dev mode with live reload
     cmds:
-      - go build -o ableton-dmx-server .
-      - ./ableton-dmx-server
+      - go build -o penumbra-server .
+      - ./penumbra-server
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
@@ -269,12 +269,12 @@ tasks:
     desc: Build release artifacts (all platforms)
     deps: [build:ui]
     cmds:
-      - GOOS=darwin  GOARCH=arm64 go build -o ableton-dmx-server-mac-arm64     .
-      - GOOS=darwin  GOARCH=amd64 go build -o ableton-dmx-server-mac-amd64     .
-      - GOOS=linux   GOARCH=arm64 go build -o ableton-dmx-server-linux-arm64   .
-      - GOOS=linux   GOARCH=amd64 go build -o ableton-dmx-server-linux-amd64   .
-      - GOOS=windows GOARCH=arm64 go build -o ableton-dmx-server-windows-arm64.exe .
-      - GOOS=windows GOARCH=amd64 go build -o ableton-dmx-server-windows-amd64.exe .
+      - GOOS=darwin  GOARCH=arm64 go build -o penumbra-server-mac-arm64     .
+      - GOOS=darwin  GOARCH=amd64 go build -o penumbra-server-mac-amd64     .
+      - GOOS=linux   GOARCH=arm64 go build -o penumbra-server-linux-arm64   .
+      - GOOS=linux   GOARCH=amd64 go build -o penumbra-server-linux-amd64   .
+      - GOOS=windows GOARCH=arm64 go build -o penumbra-server-windows-arm64.exe .
+      - GOOS=windows GOARCH=amd64 go build -o penumbra-server-windows-amd64.exe .
     dir: '{{.SERVER_DIR}}'
 
   release:electron:

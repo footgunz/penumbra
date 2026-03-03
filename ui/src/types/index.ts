@@ -11,7 +11,7 @@ export type {
   SetConfigMessage,
   HotkeyMessage,
   UIMessage,
-} from '@ableton-dmx/protocol-types'
+} from '@penumbra/protocol-types'
 
 // UI-only types
 

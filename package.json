@@ -1,5 +1,5 @@
 {
-  "name": "ableton-dmx",
+  "name": "penumbra",
   "private": true,
   "scripts": {
     "build": "pnpm -r build",

@@ -45,7 +45,7 @@ importers:
 
   electron:
     dependencies:
-      '@ableton-dmx/protocol-types':
+      '@penumbra/protocol-types':
         specifier: workspace:*
         version: link:../packages/protocol-types
     devDependencies:
@@ -79,12 +79,12 @@ importers:
 
   ui:
     dependencies:
-      '@ableton-dmx/protocol-types':
-        specifier: workspace:*
-        version: link:../packages/protocol-types
       '@codemirror/lang-json':
         specifier: ^6.0.2
         version: 6.0.2
+      '@penumbra/protocol-types':
+        specifier: workspace:*
+        version: link:../packages/protocol-types
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@5.4.21(@types/node@20.19.35)(lightningcss@1.31.1))
