@@ -187,21 +187,28 @@ func (h *Hub) SetOnBlackout(fn func()) {
 
 // Blackout enters blackout mode. State/diff messages stop flowing to WS
 // clients. Status broadcasts continue so UIs can show the blackout banner.
+// The atomic swap is immediate; side effects (E1.31 dispatch, log, status
+// broadcast) run in a goroutine so callers never block.
 func (h *Hub) Blackout() {
 	if h.blackout.CompareAndSwap(false, true) {
-		if h.onBlackout != nil {
-			h.onBlackout()
-		}
-		log.Printf("BLACKOUT activated")
-		h.BroadcastStatus()
+		go func() {
+			if h.onBlackout != nil {
+				h.onBlackout()
+			}
+			log.Printf("BLACKOUT activated")
+			h.BroadcastStatus()
+		}()
 	}
 }
 
 // Reset exits blackout mode and resumes normal message relay.
+// Same non-blocking pattern as Blackout.
 func (h *Hub) Reset() {
 	if h.blackout.CompareAndSwap(true, false) {
-		log.Printf("BLACKOUT reset — resuming normal operation")
-		h.BroadcastStatus()
+		go func() {
+			log.Printf("BLACKOUT reset — resuming normal operation")
+			h.BroadcastStatus()
+		}()
 	}
 }
 

@@ -42,8 +42,8 @@ func main() {
 	if tuiMode {
 		m := tui.New(tui.BlackoutFuncs{
 			IsActive: hub.IsBlackout,
-			Trigger:  func() { go hub.Blackout() },
-			Reset:    func() { go hub.Reset() },
+			Trigger:  hub.Blackout,
+			Reset:    hub.Reset,
 		})
 		program = tea.NewProgram(m, tea.WithAltScreen())
 		log.SetOutput(tui.NewLogWriter(program))
