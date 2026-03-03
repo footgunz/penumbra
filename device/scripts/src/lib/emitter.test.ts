@@ -1,49 +1,105 @@
+import { decode } from '@msgpack/msgpack'
 import { createEmitter } from './emitter'
 
-describe('createEmitter', () => {
-  it('calls send with a non-empty byte array on emit', () => {
+function decodePacket(bytes: number[]): { session_id: string; ts: number; state: Record<string, number> } {
+  return decode(new Uint8Array(bytes)) as any
+}
+
+describe('createEmitter — channel strip', () => {
+  it('emits a non-empty byte array on emit()', () => {
     const sent: number[][] = []
-    const emitter = createEmitter((bytes) => sent.push(bytes))
-
-    emitter.emit()
-
+    const e = createEmitter((b) => sent.push(b))
+    e.emit()
     expect(sent).toHaveLength(1)
     expect(sent[0].length).toBeGreaterThan(0)
-    expect(sent[0].every((b) => Number.isInteger(b) && b >= 0 && b <= 255)).toBe(true)
   })
 
-  it('includes setParam values in emitted packet', () => {
+  it('active channels appear in emitted state with fixture prefix', () => {
     const sent: number[][] = []
-    const emitter = createEmitter((bytes) => sent.push(bytes))
+    const e = createEmitter((b) => sent.push(b))
 
-    emitter.setParam('track1_vol', 0.75)
-    emitter.emit()
+    e.setFixtureName('stage_left')
+    e.setChannels([
+      { label: 'Dimmer', active: true },
+      { label: 'Red',    active: true },
+      { label: 'Blue',   active: false },
+    ])
+    e.setChannelValue(0, 0.75)
+    e.setChannelValue(1, 1.0)
+    e.setChannelValue(2, 0.5)  // inactive — must not appear
+    e.emit()
 
-    // Packet should be non-empty; value presence verified via msgpack round-trip below
-    expect(sent[0].length).toBeGreaterThan(0)
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['stage_left_Dimmer']).toBeCloseTo(0.75)
+    expect(pkt.state['stage_left_Red']).toBeCloseTo(1.0)
+    expect(pkt.state['stage_left_Blue']).toBeUndefined()
   })
 
-  it('resetSession changes the session id', () => {
-    const sent1: number[][] = []
-    const sent2: number[][] = []
-    const e1 = createEmitter((b) => sent1.push(b))
-    const e2 = createEmitter((b) => sent2.push(b))
+  it('inactive channels are excluded from emitted state', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
 
-    e1.emit()
-    e2.emit()
+    e.setFixtureName('fixture')
+    e.setChannels([{ label: 'Pan', active: false }])
+    e.setChannelValue(0, 0.9)
+    e.emit()
 
-    // Two emitters have independent session ids — packets should differ only in
-    // the session_id bytes. The total length should be the same (same param count).
-    expect(sent1[0].length).toBe(sent2[0].length)
+    const pkt = decodePacket(sent[0])
+    expect(Object.keys(pkt.state)).toHaveLength(0)
+  })
 
-    // After reset, the same emitter produces a different payload
-    const sentAfter: number[][] = []
-    const e3 = createEmitter((b) => sentAfter.push(b))
-    e3.emit()
-    e3.resetSession()
-    e3.emit()
+  it('setChannelValue out of range is a no-op', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
 
-    // Both payloads have same structure but different session_id bytes
-    expect(sentAfter[0].length).toBe(sentAfter[1].length)
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Dimmer', active: true }])
+    e.setChannelValue(99, 0.5)  // out of range — no crash, no effect
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['f_Dimmer']).toBeCloseTo(0)
+  })
+
+  it('setChannels preserves existing values by index', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Red', active: true }])
+    e.setChannelValue(0, 0.6)
+
+    // Apply new preset — index 0 still present, value preserved
+    e.setChannels([{ label: 'Dimmer', active: true }])
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['f_Dimmer']).toBeCloseTo(0.6)
+  })
+
+  it('resetSession clears channels and changes session id', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Red', active: true }])
+    e.setChannelValue(0, 0.9)
+    e.emit()
+
+    e.resetSession()
+    e.emit()
+
+    expect(sent).toHaveLength(2)
+    const pkt1 = decodePacket(sent[0])
+    const pkt2 = decodePacket(sent[1])
+    expect(pkt1.session_id).not.toBe(pkt2.session_id)
+    expect(Object.keys(pkt2.state)).toHaveLength(0)
+  })
+
+  it('emitted bytes are all valid uint8 values', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+    e.emit()
+    expect(sent[0].every((b) => Number.isInteger(b) && b >= 0 && b <= 255)).toBe(true)
   })
 })
