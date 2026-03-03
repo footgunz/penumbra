@@ -157,26 +157,26 @@ func (h *Hub) SetUniverseOnline(id int, online bool) {
 	h.BroadcastStatus()
 }
 
-// M4LState computes the tri-state connection status from lastSeen and config timeouts.
-func (h *Hub) M4LState() config.M4LState {
+// EmitterState computes the tri-state connection status from lastSeen and config timeouts.
+func (h *Hub) EmitterState() config.EmitterState {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
 	h.stateMu.Unlock()
-	return m4lState(lastSeen, h.cfg)
+	return emitterState(lastSeen, h.cfg)
 }
 
-func m4lState(lastSeen time.Time, cfg *config.Config) config.M4LState {
+func emitterState(lastSeen time.Time, cfg *config.Config) config.EmitterState {
 	if lastSeen.IsZero() {
-		return config.M4LDisconnected
+		return config.EmitterDisconnected
 	}
 	elapsed := time.Since(lastSeen)
-	if elapsed >= time.Duration(cfg.M4L.DisconnectTimeoutSec)*time.Second {
-		return config.M4LDisconnected
+	if elapsed >= time.Duration(cfg.Emitter.DisconnectTimeoutSec)*time.Second {
+		return config.EmitterDisconnected
 	}
-	if elapsed >= time.Duration(cfg.M4L.IdleTimeoutSec)*time.Second {
-		return config.M4LIdle
+	if elapsed >= time.Duration(cfg.Emitter.IdleTimeoutSec)*time.Second {
+		return config.EmitterIdle
 	}
-	return config.M4LConnected
+	return config.EmitterConnected
 }
 
 // SetOnBlackout registers a function called once when blackout is activated
@@ -217,7 +217,7 @@ func (h *Hub) IsBlackout() bool {
 	return h.blackout.Load()
 }
 
-// RunStatusTicker periodically broadcasts status so clients see M4L state
+// RunStatusTicker periodically broadcasts status so clients see emitter state
 // transitions (connected → idle → disconnected) even when packets stop.
 func (h *Hub) RunStatusTicker() {
 	ticker := time.NewTicker(time.Second)
@@ -240,7 +240,7 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 	h.stateMu.Unlock()
 
-	stateStr := m4lState(lastSeen, h.cfg).String()
+	stateStr := emitterState(lastSeen, h.cfg).String()
 	var lastSeenMs int64
 	if !lastSeen.IsZero() {
 		lastSeenMs = lastSeen.UnixMilli()
@@ -293,14 +293,14 @@ func (h *Hub) buildStatusMessage() []byte {
 
 	msg := struct {
 		Type        string                `json:"type"`
-		M4LState    string                `json:"m4l_state"`
-		M4LLastSeen int64                 `json:"m4l_last_seen"`
+		EmitterState    string                `json:"emitter_state"`
+		EmitterLastSeen int64                 `json:"emitter_last_seen"`
 		Blackout    bool                  `json:"blackout"`
 		Universes   map[int]universeStatus `json:"universes"`
 	}{
 		Type:        "status",
-		M4LState:    stateStr,
-		M4LLastSeen: lastSeenMs,
+		EmitterState:    stateStr,
+		EmitterLastSeen: lastSeenMs,
 		Blackout:    h.blackout.Load(),
 		Universes:   universes,
 	}

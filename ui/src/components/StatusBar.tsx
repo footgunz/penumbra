@@ -8,17 +8,17 @@ interface Props {
   sessionId: string | null
 }
 
-const m4lBadge: Record<string, { label: string; className: string }> = {
-  connected:    { label: 'M4L Connected',    className: 'bg-success text-background' },
-  idle:         { label: 'M4L Idle',         className: 'bg-warning text-background' },
-  disconnected: { label: 'M4L Disconnected', className: 'bg-error text-background' },
+const emitterBadge: Record<string, { label: string; className: string }> = {
+  connected:    { label: 'Emitter Connected',    className: 'bg-success text-background' },
+  idle:         { label: 'Emitter Idle',         className: 'bg-warning text-background' },
+  disconnected: { label: 'Emitter Disconnected', className: 'bg-error text-background' },
 }
 
 export function StatusBar({ status, sessionId }: Props) {
-  const state = status?.m4l_state ?? 'disconnected'
-  const badge = m4lBadge[state] ?? m4lBadge.disconnected
+  const state = status?.emitter_state ?? 'disconnected'
+  const badge = emitterBadge[state] ?? emitterBadge.disconnected
   const blackout = status?.blackout ?? false
-  const lastSeen = status?.m4l_last_seen
+  const lastSeen = status?.emitter_last_seen
   const universeCount = status ? Object.keys(status.universes).length : 0
 
   const lastSeenStr = lastSeen

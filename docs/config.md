@@ -10,7 +10,7 @@ Config tab in the UI). Changes persist to disk immediately.
 
 ```json
 {
-  "m4l": { ... },
+  "emitter": { ... },
   "blackout_scene": { ... },
   "universes": { ... },
   "parameters": { ... }
@@ -19,13 +19,13 @@ Config tab in the UI). Changes persist to disk immediately.
 
 ---
 
-## `m4l`
+## `emitter`
 
-Timeout thresholds for M4L connection state detection. The server uses these to
-derive a tri-state connection status (`connected`, `idle`, `disconnected`).
+Timeout thresholds for emitter connection state detection. The server uses these
+to derive a tri-state connection status (`connected`, `idle`, `disconnected`).
 
 ```json
-"m4l": {
+"emitter": {
   "idle_timeout_s": 5,
   "disconnect_timeout_s": 3600
 }
@@ -36,7 +36,7 @@ derive a tri-state connection status (`connected`, `idle`, `disconnected`).
 | `idle_timeout_s` | integer | 5 | Seconds without a packet before state becomes `idle` |
 | `disconnect_timeout_s` | integer | 3600 | Seconds without a packet before state becomes `disconnected` |
 
-If the `m4l` section is missing or values are ≤ 0, defaults are applied automatically.
+If the `emitter` section is missing or values are ≤ 0, defaults are applied automatically.
 
 ---
 
@@ -137,7 +137,7 @@ See [m4l-device.md](m4l-device.md) for the full parameter list.
 
 ```json
 {
-  "m4l": {
+  "emitter": {
     "idle_timeout_s": 5,
     "disconnect_timeout_s": 3600
   },

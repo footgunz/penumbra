@@ -11,31 +11,31 @@ import (
 type Config struct {
 	Universes     map[int]UniverseConfig     `json:"universes"`
 	Parameters    map[string]ParameterConfig `json:"parameters"`
-	M4L           M4LConfig                  `json:"m4l"`
+	Emitter       EmitterConfig              `json:"emitter"`
 	BlackoutScene map[string]float64         `json:"blackout_scene"`
 	path          string
 }
 
-// M4LConfig holds timeout thresholds for M4L connection state detection.
-type M4LConfig struct {
+// EmitterConfig holds timeout thresholds for emitter connection state detection.
+type EmitterConfig struct {
 	IdleTimeoutSec       int `json:"idle_timeout_s"`
 	DisconnectTimeoutSec int `json:"disconnect_timeout_s"`
 }
 
-// M4LState represents the tri-state M4L connection status.
-type M4LState int
+// EmitterState represents the tri-state emitter connection status.
+type EmitterState int
 
 const (
-	M4LDisconnected M4LState = iota
-	M4LIdle
-	M4LConnected
+	EmitterDisconnected EmitterState = iota
+	EmitterIdle
+	EmitterConnected
 )
 
-func (s M4LState) String() string {
+func (s EmitterState) String() string {
 	switch s {
-	case M4LConnected:
+	case EmitterConnected:
 		return "connected"
-	case M4LIdle:
+	case EmitterIdle:
 		return "idle"
 	default:
 		return "disconnected"
@@ -85,11 +85,11 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) applyDefaults() {
-	if c.M4L.IdleTimeoutSec <= 0 {
-		c.M4L.IdleTimeoutSec = 5
+	if c.Emitter.IdleTimeoutSec <= 0 {
+		c.Emitter.IdleTimeoutSec = 5
 	}
-	if c.M4L.DisconnectTimeoutSec <= 0 {
-		c.M4L.DisconnectTimeoutSec = 3600
+	if c.Emitter.DisconnectTimeoutSec <= 0 {
+		c.Emitter.DisconnectTimeoutSec = 3600
 	}
 }
 

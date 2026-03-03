@@ -112,7 +112,7 @@ See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 **Emergency blackout**
 - Atomic bool on the Hub — `Blackout()` / `Reset()` are fully non-blocking (atomic swap, side effects in goroutine)
 - When active: incoming state is received but not processed (no diff, no E1.31, no WS state/diff relay)
-- M4L connection tracking and session ID continue updating during blackout
+- Emitter connection tracking and session ID continue updating during blackout
 - Blackout scene dispatched once to E1.31 on activation (configurable in `config.json`)
 - Status messages continue flowing (with `"blackout": true`) so UIs can show the banner
 - Trigger sources: WebSocket `blackout`/`reset`, `POST /api/blackout`/`reset`, TUI `!`/`esc`, `/estop` page
@@ -139,7 +139,7 @@ See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 ├── server/                    # Go server — single deployable binary
 │   ├── main.go
 │   ├── udp/
-│   │   └── receiver.go        # Receive + decode M4L state packets
+│   │   └── receiver.go        # Receive + decode emitter state packets
 │   ├── state/
 │   │   └── state.go           # State mirror, diff detection
 │   ├── e131/
@@ -249,7 +249,7 @@ Fake emitter module: `github.com/footgunz/penumbra/tools/fake-emitter`
 - **e131/** — build E1.31 packets, manage per-universe sequence numbers, send multicast
 - **ws/** — WebSocket hub, broadcast messages to connected UI clients, blackout state machine
 - **api/** — HTTP router, serve embedded UI, config/blackout/reset endpoints, `/estop` page
-- **config/** — load/save config.json, universe registry, parameter map, M4L timeouts, blackout scene
+- **config/** — load/save config.json, universe registry, parameter map, emitter timeouts, blackout scene
 - **tui/** — optional terminal UI dashboard (Bubbletea), parameter/universe views, blackout banner
 
 ---

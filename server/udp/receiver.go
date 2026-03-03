@@ -8,7 +8,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// StatePacket is the wire format received from M4L (or the fake emitter).
+// StatePacket is the wire format received from an emitter (M4L, fake-emitter, etc.).
 type StatePacket struct {
 	SessionID string             `msgpack:"session_id"`
 	Ts        int64              `msgpack:"ts"`

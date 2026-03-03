@@ -74,7 +74,7 @@ func main() {
 	receiver := udp.NewReceiver(udpPort, func(pkt udp.StatePacket) {
 		hub.MaybebroadcastStatus(pkt.SessionID)
 		if program != nil {
-			program.Send(tui.M4LSeenMsg{})
+			program.Send(tui.EmitterSeenMsg{})
 			program.Send(tui.SessionMsg(pkt.SessionID))
 		}
 
@@ -106,9 +106,9 @@ func main() {
 	var onConfigUpdate func(*config.Config)
 	if program != nil {
 		onConfigUpdate = func(c *config.Config) {
-			program.Send(tui.M4LTimeoutsMsg{
-				IdleTimeout:       time.Duration(c.M4L.IdleTimeoutSec) * time.Second,
-				DisconnectTimeout: time.Duration(c.M4L.DisconnectTimeoutSec) * time.Second,
+			program.Send(tui.EmitterTimeoutsMsg{
+				IdleTimeout:       time.Duration(c.Emitter.IdleTimeoutSec) * time.Second,
+				DisconnectTimeout: time.Duration(c.Emitter.DisconnectTimeoutSec) * time.Second,
 			})
 			cm := make(tui.ConfigMsg, len(c.Parameters))
 			for param, targets := range c.Parameters {
@@ -134,9 +134,9 @@ func main() {
 			go program.Send(tui.UniverseMsg{ID: id, Label: u.Label, IP: u.DeviceIP})
 		}
 		go func() {
-			program.Send(tui.M4LTimeoutsMsg{
-				IdleTimeout:       time.Duration(cfg.M4L.IdleTimeoutSec) * time.Second,
-				DisconnectTimeout: time.Duration(cfg.M4L.DisconnectTimeoutSec) * time.Second,
+			program.Send(tui.EmitterTimeoutsMsg{
+				IdleTimeout:       time.Duration(cfg.Emitter.IdleTimeoutSec) * time.Second,
+				DisconnectTimeout: time.Duration(cfg.Emitter.DisconnectTimeoutSec) * time.Second,
 			})
 			cm := make(tui.ConfigMsg, len(cfg.Parameters))
 			for param, targets := range cfg.Parameters {

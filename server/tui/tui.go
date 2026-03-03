@@ -23,8 +23,8 @@ type ParamUpdateMsg map[string]float64
 // SessionMsg carries the current session ID.
 type SessionMsg string
 
-// M4LSeenMsg signals that a UDP packet was received from M4L/emitter.
-type M4LSeenMsg struct{}
+// EmitterSeenMsg signals that a UDP packet was received from an emitter.
+type EmitterSeenMsg struct{}
 
 // UniverseMsg carries the status of a single universe.
 type UniverseMsg struct {
@@ -43,8 +43,8 @@ type ChannelTarget struct {
 // ConfigMsg carries the parameter-to-DMX-channel mapping from server config.
 type ConfigMsg map[string][]ChannelTarget
 
-// M4LTimeoutsMsg carries the idle and disconnect timeout durations.
-type M4LTimeoutsMsg struct {
+// EmitterTimeoutsMsg carries the idle and disconnect timeout durations.
+type EmitterTimeoutsMsg struct {
 	IdleTimeout       time.Duration
 	DisconnectTimeout time.Duration
 }
@@ -101,7 +101,7 @@ type Model struct {
 	filter    textinput.Model
 	sessionID string
 	tick      int
-	m4lLastSeen       time.Time
+	emitterLastSeen   time.Time
 	idleTimeout       time.Duration
 	disconnectTimeout time.Duration
 	bo                BlackoutFuncs
@@ -235,11 +235,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sessionID = newID
 		return m, nil
 
-	case M4LSeenMsg:
-		m.m4lLastSeen = time.Now()
+	case EmitterSeenMsg:
+		m.emitterLastSeen = time.Now()
 		return m, nil
 
-	case M4LTimeoutsMsg:
+	case EmitterTimeoutsMsg:
 		m.idleTimeout = msg.IdleTimeout
 		m.disconnectTimeout = msg.DisconnectTimeout
 		return m, nil
@@ -294,18 +294,18 @@ var (
 	blackoutStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("196"))
 )
 
-func (m Model) m4lState() config.M4LState {
-	if m.m4lLastSeen.IsZero() {
-		return config.M4LDisconnected
+func (m Model) emitterState() config.EmitterState {
+	if m.emitterLastSeen.IsZero() {
+		return config.EmitterDisconnected
 	}
-	elapsed := time.Since(m.m4lLastSeen)
+	elapsed := time.Since(m.emitterLastSeen)
 	if elapsed >= m.disconnectTimeout {
-		return config.M4LDisconnected
+		return config.EmitterDisconnected
 	}
 	if elapsed >= m.idleTimeout {
-		return config.M4LIdle
+		return config.EmitterIdle
 	}
-	return config.M4LConnected
+	return config.EmitterConnected
 }
 
 func (m Model) logViewportHeight() int {
@@ -371,14 +371,14 @@ func (m Model) View() string {
 	b.WriteString(titleStyle.Render(" PENUMBRA"))
 	b.WriteByte('\n')
 
-	var m4l string
-	switch m.m4lState() {
-	case config.M4LConnected:
-		m4l = okStyle.Render("● connected")
-	case config.M4LIdle:
-		m4l = warnStyle.Render("● idle")
+	var emitter string
+	switch m.emitterState() {
+	case config.EmitterConnected:
+		emitter = okStyle.Render("● connected")
+	case config.EmitterIdle:
+		emitter = warnStyle.Render("● idle")
 	default:
-		m4l = errStyle.Render("● disconnected")
+		emitter = errStyle.Render("● disconnected")
 	}
 	up := time.Since(m.startTime).Truncate(time.Second)
 
@@ -405,8 +405,8 @@ func (m Model) View() string {
 		sess = marquee(sess, 12, m.tick)
 	}
 
-	b.WriteString(fmt.Sprintf(" M4L %s  Universes %s  Uptime %s  Session %s\n",
-		m4l,
+	b.WriteString(fmt.Sprintf(" Emitter %s  Universes %s  Uptime %s  Session %s\n",
+		emitter,
 		uCountStyle.Render(fmt.Sprintf("%d/%d", online, total)),
 		dimStyle.Render(up.String()),
 		headerStyle.Render(sess)))

@@ -6,7 +6,7 @@
 
 // ─── Server → UI ──────────────────────────────────────────────────────────────
 
-/** New session detected — M4L restarted or tracks changed */
+/** New session detected — emitter restarted or tracks changed */
 export interface SessionMessage {
   type: 'session'
   session_id: string
@@ -41,13 +41,13 @@ export interface UniverseStatus {
   channels: ChannelInfo[]
 }
 
-export type M4LState = 'connected' | 'idle' | 'disconnected'
+export type EmitterState = 'connected' | 'idle' | 'disconnected'
 
 /** Connection and universe health */
 export interface StatusMessage {
   type: 'status'
-  m4l_state: M4LState
-  m4l_last_seen: number
+  emitter_state: EmitterState
+  emitter_last_seen: number
   blackout: boolean
   universes: Record<number, UniverseStatus>
 }

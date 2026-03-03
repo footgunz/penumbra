@@ -56,7 +56,7 @@ M4L restarts or track added/deleted
   → server detects change, resets state mirror, re-derives universe map
 
 M4L stops
-  → server detects timeout (no packet for >500ms), marks M4L disconnected
+  → server detects timeout (no packet for >500ms), marks emitter disconnected
 ```
 
 No explicit connect/disconnect handshake. Session change is detected from session_id on incoming packets.
@@ -152,8 +152,8 @@ Sent on each tick where state changed.
 ```json
 {
   "type": "status",
-  "m4l_state": "connected",
-  "m4l_last_seen": 1709123457039,
+  "emitter_state": "connected",
+  "emitter_last_seen": 1709123457039,
   "blackout": false,
   "universes": {
     "1": { "label": "stage left", "device_ip": "192.168.1.101", "online": true, "channels": [...] },
@@ -164,8 +164,8 @@ Sent on each tick where state changed.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `m4l_state` | `"connected"` \| `"idle"` \| `"disconnected"` | Tri-state M4L connection status based on configurable timeouts |
-| `m4l_last_seen` | integer | Unix timestamp (ms) of last received M4L/emitter packet, 0 if never |
+| `emitter_state` | `"connected"` \| `"idle"` \| `"disconnected"` | Tri-state emitter connection status based on configurable timeouts |
+| `emitter_last_seen` | integer | Unix timestamp (ms) of last received emitter packet, 0 if never |
 | `blackout` | boolean | `true` when emergency blackout is active |
 | `universes` | object | Per-universe status including online state and current channel values |
 
@@ -181,7 +181,7 @@ Status messages continue flowing during blackout so UIs can display the blackout
 
 Sets the server's atomic blackout flag. The server immediately dispatches the
 configured blackout scene to E1.31 and stops processing incoming state — no
-diff computation, no E1.31 output, no state/diff relay to WS clients. M4L
+diff computation, no E1.31 output, no state/diff relay to WS clients. Emitter
 connection tracking continues. The flag is also settable via `POST /api/blackout`.
 
 #### `reset` — Clear blackout
@@ -230,8 +230,8 @@ In the browser (non-Electron), standard `keydown` listeners fire the same handle
 
 The server maintains an atomic blackout flag. When active:
 
-1. Incoming M4L/emitter packets are received but not processed (no diff, no E1.31, no WS relay)
-2. M4L connection tracking and session ID continue updating
+1. Incoming emitter packets are received but not processed (no diff, no E1.31, no WS relay)
+2. Emitter connection tracking and session ID continue updating
 3. The configured blackout scene is dispatched once to E1.31 on activation
 4. Status messages continue flowing to all clients (with `"blackout": true`)
 5. The only accepted command is `reset`

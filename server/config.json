@@ -1,5 +1,5 @@
 {
-  "m4l": {
+  "emitter": {
     "idle_timeout_s": 5,
     "disconnect_timeout_s": 3600
   },
