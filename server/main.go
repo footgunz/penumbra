@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -81,6 +82,10 @@ func main() {
 	var onConfigUpdate func(*config.Config)
 	if program != nil {
 		onConfigUpdate = func(c *config.Config) {
+			program.Send(tui.M4LTimeoutsMsg{
+				IdleTimeout:       time.Duration(c.M4L.IdleTimeoutSec) * time.Second,
+				DisconnectTimeout: time.Duration(c.M4L.DisconnectTimeoutSec) * time.Second,
+			})
 			cm := make(tui.ConfigMsg, len(c.Parameters))
 			for param, targets := range c.Parameters {
 				tt := make([]tui.ChannelTarget, len(targets))
@@ -98,11 +103,17 @@ func main() {
 
 	router := api.NewRouter(hub, cfg, wsPort, onConfigUpdate)
 
+	go hub.RunStatusTicker()
+
 	if tuiMode {
 		for id, u := range cfg.Universes {
 			go program.Send(tui.UniverseMsg{ID: id, Label: u.Label, IP: u.DeviceIP})
 		}
 		go func() {
+			program.Send(tui.M4LTimeoutsMsg{
+				IdleTimeout:       time.Duration(cfg.M4L.IdleTimeoutSec) * time.Second,
+				DisconnectTimeout: time.Duration(cfg.M4L.DisconnectTimeoutSec) * time.Second,
+			})
 			cm := make(tui.ConfigMsg, len(cfg.Parameters))
 			for param, targets := range cfg.Parameters {
 				tt := make([]tui.ChannelTarget, len(targets))

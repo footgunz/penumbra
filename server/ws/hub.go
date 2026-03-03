@@ -148,6 +148,38 @@ func (h *Hub) SetUniverseOnline(id int, online bool) {
 	h.BroadcastStatus()
 }
 
+// M4LState computes the tri-state connection status from lastSeen and config timeouts.
+func (h *Hub) M4LState() config.M4LState {
+	h.stateMu.Lock()
+	lastSeen := h.lastSeen
+	h.stateMu.Unlock()
+	return m4lState(lastSeen, h.cfg)
+}
+
+func m4lState(lastSeen time.Time, cfg *config.Config) config.M4LState {
+	if lastSeen.IsZero() {
+		return config.M4LDisconnected
+	}
+	elapsed := time.Since(lastSeen)
+	if elapsed >= time.Duration(cfg.M4L.DisconnectTimeoutSec)*time.Second {
+		return config.M4LDisconnected
+	}
+	if elapsed >= time.Duration(cfg.M4L.IdleTimeoutSec)*time.Second {
+		return config.M4LIdle
+	}
+	return config.M4LConnected
+}
+
+// RunStatusTicker periodically broadcasts status so clients see M4L state
+// transitions (connected → idle → disconnected) even when packets stop.
+func (h *Hub) RunStatusTicker() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		h.BroadcastStatus()
+	}
+}
+
 func (h *Hub) buildStatusMessage() []byte {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
@@ -161,7 +193,7 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 	h.stateMu.Unlock()
 
-	connected := !lastSeen.IsZero() && time.Since(lastSeen) < 5*time.Second
+	stateStr := m4lState(lastSeen, h.cfg).String()
 	var lastSeenMs int64
 	if !lastSeen.IsZero() {
 		lastSeenMs = lastSeen.UnixMilli()
@@ -213,15 +245,15 @@ func (h *Hub) buildStatusMessage() []byte {
 	}
 
 	msg := struct {
-		Type         string                `json:"type"`
-		M4LConnected bool                  `json:"m4l_connected"`
-		M4LLastSeen  int64                 `json:"m4l_last_seen"`
-		Universes    map[int]universeStatus `json:"universes"`
+		Type        string                `json:"type"`
+		M4LState    string                `json:"m4l_state"`
+		M4LLastSeen int64                 `json:"m4l_last_seen"`
+		Universes   map[int]universeStatus `json:"universes"`
 	}{
-		Type:         "status",
-		M4LConnected: connected,
-		M4LLastSeen:  lastSeenMs,
-		Universes:    universes,
+		Type:        "status",
+		M4LState:    stateStr,
+		M4LLastSeen: lastSeenMs,
+		Universes:   universes,
 	}
 	data, _ := json.Marshal(msg)
 	return data

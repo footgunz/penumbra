@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/footgunz/penumbra/config"
 )
 
 // --- Messages sent from server goroutines via Program.Send() ---
@@ -41,6 +42,12 @@ type ChannelTarget struct {
 
 // ConfigMsg carries the parameter-to-DMX-channel mapping from server config.
 type ConfigMsg map[string][]ChannelTarget
+
+// M4LTimeoutsMsg carries the idle and disconnect timeout durations.
+type M4LTimeoutsMsg struct {
+	IdleTimeout       time.Duration
+	DisconnectTimeout time.Duration
+}
 
 // LogMsg carries a single log line.
 type LogMsg string
@@ -87,7 +94,9 @@ type Model struct {
 	filter    textinput.Model
 	sessionID string
 	tick      int
-	m4lLastSeen time.Time
+	m4lLastSeen      time.Time
+	idleTimeout      time.Duration
+	disconnectTimeout time.Duration
 	startTime    time.Time
 	universes    map[int]universeInfo
 	logLines     []string
@@ -108,12 +117,14 @@ func New() Model {
 	ti.Focus()
 
 	return Model{
-		params:    make(map[string]float64),
-		filter:    ti,
-		startTime: time.Now(),
-		universes: make(map[int]universeInfo),
-		logLines:  make([]string, 0, 128),
-		focus:     focusParams,
+		params:            make(map[string]float64),
+		filter:            ti,
+		startTime:         time.Now(),
+		idleTimeout:       5 * time.Second,
+		disconnectTimeout: 3600 * time.Second,
+		universes:         make(map[int]universeInfo),
+		logLines:          make([]string, 0, 128),
+		focus:             focusParams,
 	}
 }
 
@@ -208,6 +219,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.m4lLastSeen = time.Now()
 		return m, nil
 
+	case M4LTimeoutsMsg:
+		m.idleTimeout = msg.IdleTimeout
+		m.disconnectTimeout = msg.DisconnectTimeout
+		return m, nil
+
 	case UniverseMsg:
 		m.universes[msg.ID] = universeInfo{
 			label:  msg.Label,
@@ -245,16 +261,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // --- Styles ---
 
 var (
-	titleStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	headerStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
-	activeTabStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	titleStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	headerStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
+	activeTabStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	inactiveTabStyle = dimStyle
-	okStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	errStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	dimStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	barFullStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	barDimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	okStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+	warnStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	errStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	barFullStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	barDimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 )
+
+func (m Model) m4lState() config.M4LState {
+	if m.m4lLastSeen.IsZero() {
+		return config.M4LDisconnected
+	}
+	elapsed := time.Since(m.m4lLastSeen)
+	if elapsed >= m.disconnectTimeout {
+		return config.M4LDisconnected
+	}
+	if elapsed >= m.idleTimeout {
+		return config.M4LIdle
+	}
+	return config.M4LConnected
+}
 
 func (m Model) logViewportHeight() int {
 	h := m.height / 4
@@ -319,9 +350,14 @@ func (m Model) View() string {
 	b.WriteString(titleStyle.Render(" PENUMBRA"))
 	b.WriteByte('\n')
 
-	m4l := errStyle.Render("● disconnected")
-	if !m.m4lLastSeen.IsZero() && time.Since(m.m4lLastSeen) < 5*time.Second {
+	var m4l string
+	switch m.m4lState() {
+	case config.M4LConnected:
 		m4l = okStyle.Render("● connected")
+	case config.M4LIdle:
+		m4l = warnStyle.Render("● idle")
+	default:
+		m4l = errStyle.Render("● disconnected")
 	}
 	up := time.Since(m.startTime).Truncate(time.Second)
 

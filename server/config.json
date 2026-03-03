@@ -1,4 +1,8 @@
 {
+  "m4l": {
+    "idle_timeout_s": 5,
+    "disconnect_timeout_s": 3600
+  },
   "universes": {
     "1": {
       "device_ip": "192.168.1.101",
