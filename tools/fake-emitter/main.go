@@ -37,15 +37,12 @@ type StatePacket struct {
 	State     map[string]float64 `msgpack:"state"`
 }
 
-// defaultParameters defines a representative parameter set.
-// Mirrors what a typical Live session might expose.
-// Replace or extend as your session grows.
+// defaultParameters simulates two 6ch PAR fixtures.
+// Names match the M4L channel strip output: {track_name}_{Label}
+// Labels are Title Case to match the well-known preset label list.
 var defaultParameters = []string{
-	"track1_dimmer", "track1_red", "track1_green", "track1_blue",
-	"track2_dimmer", "track2_red", "track2_green", "track2_blue",
-	"track3_dimmer", "track3_red", "track3_green", "track3_blue",
-	"track4_dimmer", "track4_red", "track4_green", "track4_blue",
-	"master_dimmer",
+	"track1_Dimmer", "track1_Red", "track1_Green", "track1_Blue", "track1_Strobe", "track1_Mode",
+	"track2_Dimmer", "track2_Red", "track2_Green", "track2_Blue", "track2_Strobe", "track2_Mode",
 }
 
 // ── Animated mode: independent random walk per parameter ──────────────────
