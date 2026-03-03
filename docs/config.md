@@ -10,10 +10,55 @@ Config tab in the UI). Changes persist to disk immediately.
 
 ```json
 {
+  "m4l": { ... },
+  "blackout_scene": { ... },
   "universes": { ... },
   "parameters": { ... }
 }
 ```
+
+---
+
+## `m4l`
+
+Timeout thresholds for M4L connection state detection. The server uses these to
+derive a tri-state connection status (`connected`, `idle`, `disconnected`).
+
+```json
+"m4l": {
+  "idle_timeout_s": 5,
+  "disconnect_timeout_s": 3600
+}
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `idle_timeout_s` | integer | 5 | Seconds without a packet before state becomes `idle` |
+| `disconnect_timeout_s` | integer | 3600 | Seconds without a packet before state becomes `disconnected` |
+
+If the `m4l` section is missing or values are ≤ 0, defaults are applied automatically.
+
+---
+
+## `blackout_scene`
+
+Parameter values applied when emergency blackout is activated. Maps parameter
+names to normalised float values (0.0–1.0).
+
+```json
+"blackout_scene": {
+  "par_front_Dimmer": 0.0,
+  "mover_back_Dimmer": 0.0
+}
+```
+
+An **empty object** (`{}`) means "zero all mapped channels" — the server
+generates a map of every configured parameter set to 0.0. A **non-empty
+object** sets only the specified parameters (useful for house lights or a safe
+resting state).
+
+See [protocol.md](protocol.md#5-emergency-blackout) for the full blackout
+behavior.
 
 ---
 
@@ -92,6 +137,11 @@ See [m4l-device.md](m4l-device.md) for the full parameter list.
 
 ```json
 {
+  "m4l": {
+    "idle_timeout_s": 5,
+    "disconnect_timeout_s": 3600
+  },
+  "blackout_scene": {},
   "universes": {
     "1": { "device_ip": "192.168.1.101", "label": "stage left" },
     "2": { "device_ip": "192.168.1.102", "label": "stage right" }

@@ -55,8 +55,9 @@ Single statically-linked binary. Owns all intelligence:
 | `state/` | Maintain state mirror, compute diffs, detect session changes |
 | `e131/` | Build E1.31 packets, manage per-universe sequence numbers, send multicast |
 | `ws/` | WebSocket hub, broadcast messages to connected UI clients |
-| `api/` | HTTP router, serve embedded UI bundle, handle `POST /api/config` |
-| `config/` | Load/save `config.json`, universe registry, parameter map |
+| `api/` | HTTP router, serve embedded UI bundle, config + blackout/reset endpoints |
+| `config/` | Load/save `config.json`, universe registry, parameter map, blackout scene |
+| `tui/` | Optional terminal UI dashboard (Bubbletea) |
 
 The server also embeds the compiled Vite/React bundle and serves it at `/`.
 
@@ -97,6 +98,24 @@ Live session change
   → WebSocket diff broadcast to UI clients
   → UI updates display
 ```
+
+### Emergency blackout
+
+The server maintains an atomic blackout flag on the Hub. When activated:
+
+```
+normal ──(blackout)──► locked ──(reset)──► normal
+```
+
+- **Locked**: incoming state is received but not processed (no diff, no E1.31,
+  no WS relay). The configured blackout scene is dispatched once to E1.31.
+  Status messages continue flowing so UIs can show the blackout banner.
+- **Reset**: the flag clears and the next incoming packet resumes normal
+  processing.
+
+Blackout can be triggered from the Web UI, TUI (`!` key), HTTP API
+(`POST /api/blackout`), or a dedicated mobile e-stop page at `/estop`.
+See [protocol.md](protocol.md#5-emergency-blackout) for details.
 
 ---
 

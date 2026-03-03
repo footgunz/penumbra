@@ -147,21 +147,51 @@ Sent on each tick where state changed.
 }
 ```
 
-#### `status` — Connection and universe health
+#### `status` — Connection, universe health, and blackout state
 
 ```json
 {
   "type": "status",
-  "m4l_connected": true,
+  "m4l_state": "connected",
   "m4l_last_seen": 1709123457039,
+  "blackout": false,
   "universes": {
-    "1": { "label": "stage left", "ip": "192.168.1.101", "active": true },
-    "2": { "label": "stage right", "ip": "192.168.1.102", "active": true }
+    "1": { "label": "stage left", "device_ip": "192.168.1.101", "online": true, "channels": [...] },
+    "2": { "label": "stage right", "device_ip": "192.168.1.102", "online": true, "channels": [...] }
   }
 }
 ```
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `m4l_state` | `"connected"` \| `"idle"` \| `"disconnected"` | Tri-state M4L connection status based on configurable timeouts |
+| `m4l_last_seen` | integer | Unix timestamp (ms) of last received M4L/emitter packet, 0 if never |
+| `blackout` | boolean | `true` when emergency blackout is active |
+| `universes` | object | Per-universe status including online state and current channel values |
+
+Status messages continue flowing during blackout so UIs can display the blackout banner and reset button.
+
 ### UI → Server messages
+
+#### `blackout` — Activate emergency blackout
+
+```json
+{ "type": "blackout" }
+```
+
+Sets the server's atomic blackout flag. The server immediately dispatches the
+configured blackout scene to E1.31 and stops processing incoming state — no
+diff computation, no E1.31 output, no state/diff relay to WS clients. M4L
+connection tracking continues. The flag is also settable via `POST /api/blackout`.
+
+#### `reset` — Clear blackout
+
+```json
+{ "type": "reset" }
+```
+
+Clears the blackout flag. The server resumes normal operation on the next
+incoming packet. Also available via `POST /api/reset`.
 
 #### `set_config` — Update universe/parameter mapping
 
@@ -193,3 +223,35 @@ Sent on each tick where state changed.
 Global hotkeys registered in Electron fire `ipcMain` events, which are forwarded to the renderer via `ipcRenderer`, which emits the same synthetic events as keyboard shortcuts in the browser. The renderer is agnostic — it handles `hotkey` events regardless of source.
 
 In the browser (non-Electron), standard `keydown` listeners fire the same handler. The server also accepts `hotkey` messages over WebSocket so future integrations (hardware controllers, OSC) can trigger the same actions.
+
+---
+
+## 5. Emergency Blackout
+
+The server maintains an atomic blackout flag. When active:
+
+1. Incoming M4L/emitter packets are received but not processed (no diff, no E1.31, no WS relay)
+2. M4L connection tracking and session ID continue updating
+3. The configured blackout scene is dispatched once to E1.31 on activation
+4. Status messages continue flowing to all clients (with `"blackout": true`)
+5. The only accepted command is `reset`
+
+### Trigger sources
+
+| Source | Mechanism |
+|--------|-----------|
+| Web UI (status bar) | WebSocket `{"type": "blackout"}` / `{"type": "reset"}` |
+| Web UI (mobile e-stop) | `GET /estop` — standalone page, uses `POST /api/blackout` |
+| TUI | `!` for blackout, `esc` to reset |
+| HTTP API | `POST /api/blackout` / `POST /api/reset` |
+| Hotkey (Electron) | WebSocket blackout message |
+
+All trigger sources funnel to the same atomic flag on the Hub. `Blackout()` and
+`Reset()` are fully non-blocking — the atomic swap is synchronous, all side
+effects (E1.31 dispatch, logging, status broadcast) run in a goroutine.
+
+### Blackout scene
+
+Configured in `config.json` under `blackout_scene`. An empty object means
+"zero all mapped channels." A non-empty object sets specific parameter values
+(e.g., house lights at full). See [config.md](config.md) for the schema.

@@ -94,8 +94,10 @@ See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 
 **Server ↔ UI (WebSocket, port 3000)**
 - WebSocket message types (server → UI): `session`, `state`, `diff`, `status`
-- WebSocket message types (UI → server): `hotkey` (forwarded from Electron IPC or keyboard)
+- WebSocket message types (UI → server): `hotkey`, `blackout`, `reset`
 - Config updates via REST: `POST /api/config` — JSON body, updates `server/config.json`
+- Emergency blackout via REST: `POST /api/blackout`, `POST /api/reset`
+- Dedicated mobile e-stop page: `GET /estop` — standalone HTML, no React dependency
 - Go serves PWA static bundle on same port via embedded `embed.FS`
 
 **Config update pattern**
@@ -106,6 +108,14 @@ See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 - Electron global shortcuts → IPC → renderer synthetic event
 - Browser: standard `keydown` → same handler
 - Server also accepts `hotkey` over WebSocket for future integrations
+
+**Emergency blackout**
+- Atomic bool on the Hub — `Blackout()` / `Reset()` are fully non-blocking (atomic swap, side effects in goroutine)
+- When active: incoming state is received but not processed (no diff, no E1.31, no WS state/diff relay)
+- M4L connection tracking and session ID continue updating during blackout
+- Blackout scene dispatched once to E1.31 on activation (configurable in `config.json`)
+- Status messages continue flowing (with `"blackout": true`) so UIs can show the banner
+- Trigger sources: WebSocket `blackout`/`reset`, `POST /api/blackout`/`reset`, TUI `!`/`esc`, `/estop` page
 
 ---
 
@@ -137,9 +147,11 @@ See [docs/protocol.md](docs/protocol.md) for full spec. Key points:
 │   ├── ws/
 │   │   └── hub.go             # WebSocket hub, broadcast to UI clients
 │   ├── api/
-│   │   └── routes.go          # HTTP routes, serve embedded UI, POST /api/config
+│   │   └── routes.go          # HTTP routes, serve embedded UI, config/blackout/reset endpoints, /estop page
 │   ├── config/
 │   │   └── config.go          # Universe registry, parameter map, persistence
+│   ├── tui/
+│   │   └── tui.go             # Optional terminal UI dashboard (Bubbletea)
 │   ├── ui/
 │   │   ├── fs.go              # embed.FS exposed as package ui — imported by api/
 │   │   └── dist/              # Vite build output — gitignored, embedded at compile time
@@ -224,7 +236,7 @@ For headless deployment: `Dockerfile` and `systemd` unit in `server/deploy/`.
 
 Cross-compile for Pi:
 ```bash
-GOOS=linux GOARCH=arm64 go build -o ableton-dmx-server ./...
+GOOS=linux GOARCH=arm64 go build -o penumbra-server ./...
 ```
 
 Go module path: `github.com/footgunz/penumbra`
@@ -235,9 +247,10 @@ Fake emitter module: `github.com/footgunz/penumbra/tools/fake-emitter`
 - **udp/** — decode incoming MessagePack, validate session_id, emit state events
 - **state/** — maintain state mirror, compute diffs, detect session changes
 - **e131/** — build E1.31 packets, manage per-universe sequence numbers, send multicast
-- **ws/** — WebSocket hub, broadcast messages to connected UI clients
-- **api/** — HTTP router, serve embedded UI, handle `POST /api/config`
-- **config/** — load/save config.json, universe registry, parameter map
+- **ws/** — WebSocket hub, broadcast messages to connected UI clients, blackout state machine
+- **api/** — HTTP router, serve embedded UI, config/blackout/reset endpoints, `/estop` page
+- **config/** — load/save config.json, universe registry, parameter map, M4L timeouts, blackout scene
+- **tui/** — optional terminal UI dashboard (Bubbletea), parameter/universe views, blackout banner
 
 ---
 
@@ -391,6 +404,7 @@ Git tags version the entire system. All components versioned together. Do not ta
 - **Full state every tick** — simple to reason about, LAN bandwidth is not a constraint
 - **E1.31 multicast standard addresses** — no universe→IP mapping needed in M4L
 - **Per-universe E1.31 seq in Go** — correct per spec, isolated from monitoring concerns
+- **Atomic blackout flag** — non-blocking `Blackout()`/`Reset()` safe to call from any goroutine (HTTP handler, WS readPump, TUI event loop). Side effects (E1.31 dispatch, logging, status broadcast) run in a goroutine so callers never block.
 
 ### Split-tick LOM read vs emit
 

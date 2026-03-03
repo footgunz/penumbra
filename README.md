@@ -43,6 +43,8 @@ See [docs/architecture.md](docs/architecture.md) for a detailed breakdown.
 - **E1.31 multicast** — native WLED protocol, no intermediate DMX interface needed
 - **Single Go binary** — runs on Mac, Linux, or Raspberry Pi with no runtime dependencies
 - **PWA UI** — monitor and configure from any browser on the network
+- **Terminal UI** — optional TUI dashboard (`--tui`) with live parameter bars, universe status, and log
+- **Emergency blackout** — atomic e-stop from any interface (UI, TUI, HTTP API, or mobile `/estop` page)
 - **Fake emitter** — develop and test the full stack without a Live license
 
 ---
