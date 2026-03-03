@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -282,11 +283,13 @@ type channelEntry struct {
 func (m Model) channelsForUniverse(uid int, filter string) []channelEntry {
 	var entries []channelEntry
 	for param, targets := range m.configMap {
-		if filter != "" && !strings.Contains(strings.ToLower(param), filter) {
-			continue
-		}
 		for _, t := range targets {
 			if t.Universe != uid {
+				continue
+			}
+			if filter != "" &&
+				!strings.Contains(strings.ToLower(param), filter) &&
+				!strings.Contains(strconv.Itoa(t.Channel), filter) {
 				continue
 			}
 			v := math.Max(0, math.Min(1, m.params[param]))
