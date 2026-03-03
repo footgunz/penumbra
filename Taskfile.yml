@@ -1,5 +1,7 @@
 version: '3'
 
+set: [pipefail]
+
 dotenv: ['.env', '.env.local']
 
 vars:
