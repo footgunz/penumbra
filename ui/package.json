@@ -1,5 +1,5 @@
 {
-  "name": "@ableton-dmx/ui",
+  "name": "@penumbra/ui",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -12,7 +12,7 @@
     "playwright": "playwright test --pass-with-no-tests"
   },
   "dependencies": {
-    "@ableton-dmx/protocol-types": "workspace:*",
+    "@penumbra/protocol-types": "workspace:*",
     "@codemirror/lang-json": "^6.0.2",
     "@tailwindcss/vite": "^4.2.1",
     "@uiw/react-codemirror": "^4.25.5",

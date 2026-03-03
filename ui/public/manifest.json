@@ -1,7 +1,7 @@
 {
-  "name": "Ableton DMX",
-  "short_name": "AbletonDMX",
-  "description": "DMX lighting controller for Ableton Live",
+  "name": "Penumbra",
+  "short_name": "Penumbra",
+  "description": "DMX lighting controller for live performance",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",

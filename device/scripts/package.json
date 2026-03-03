@@ -1,5 +1,5 @@
 {
-  "name": "@ableton-dmx/device-scripts",
+  "name": "@penumbra/device-scripts",
   "private": true,
   "scripts": {
     "build": "node build.mjs",

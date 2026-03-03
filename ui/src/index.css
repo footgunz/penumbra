@@ -11,6 +11,7 @@
   --color-border-muted: oklch(24% 0 0);
   --color-accent:       oklch(58.5% 0.233 277);
   --color-success:      oklch(72.3% 0.198 142);
+  --color-warning:      oklch(75% 0.18 75);
   --color-error:        oklch(62.7% 0.258 27);
   --color-error-bg:     oklch(22% 0.06 27);
   --color-error-border: oklch(32% 0.12 27);

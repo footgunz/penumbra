@@ -11,7 +11,7 @@ const config = {
   mainFields: ['module', 'main'],
   format: 'iife',
   // Max does not support ES modules — everything must be bundled into one
-  // self-contained IIFE. Shared packages (@ableton-dmx/*) are bundled in.
+  // self-contained IIFE. Shared packages (@penumbra/*) are bundled in.
   //
   // Max globals (post, outlet, inlet, Task, etc.) are NOT available at
   // bundle time — they are injected by the Max runtime. Do not import or

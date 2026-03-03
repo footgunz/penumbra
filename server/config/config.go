@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 )
 
@@ -10,7 +11,34 @@ import (
 type Config struct {
 	Universes  map[int]UniverseConfig     `json:"universes"`
 	Parameters map[string]ParameterConfig `json:"parameters"`
+	M4L        M4LConfig                  `json:"m4l"`
 	path       string
+}
+
+// M4LConfig holds timeout thresholds for M4L connection state detection.
+type M4LConfig struct {
+	IdleTimeoutSec       int `json:"idle_timeout_s"`
+	DisconnectTimeoutSec int `json:"disconnect_timeout_s"`
+}
+
+// M4LState represents the tri-state M4L connection status.
+type M4LState int
+
+const (
+	M4LDisconnected M4LState = iota
+	M4LIdle
+	M4LConnected
+)
+
+func (s M4LState) String() string {
+	switch s {
+	case M4LConnected:
+		return "connected"
+	case M4LIdle:
+		return "idle"
+	default:
+		return "disconnected"
+	}
 }
 
 // UniverseConfig maps a universe number (integer key) to its WLED device IP and label.
@@ -41,6 +69,8 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Printf("config: %s not found, using defaults (cwd: %s)", path, cwd())
+			cfg.applyDefaults()
 			return cfg, nil
 		}
 		return nil, err
@@ -49,7 +79,25 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	cfg.path = path
+	cfg.applyDefaults()
 	return cfg, nil
+}
+
+func (c *Config) applyDefaults() {
+	if c.M4L.IdleTimeoutSec <= 0 {
+		c.M4L.IdleTimeoutSec = 5
+	}
+	if c.M4L.DisconnectTimeoutSec <= 0 {
+		c.M4L.DisconnectTimeoutSec = 3600
+	}
+}
+
+func cwd() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "?"
+	}
+	return dir
 }
 
 // Save writes the config back to the file it was loaded from.

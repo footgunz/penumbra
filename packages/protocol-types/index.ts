@@ -41,10 +41,12 @@ export interface UniverseStatus {
   channels: ChannelInfo[]
 }
 
+export type M4LState = 'connected' | 'idle' | 'disconnected'
+
 /** Connection and universe health */
 export interface StatusMessage {
   type: 'status'
-  m4l_connected: boolean
+  m4l_state: M4LState
   m4l_last_seen: number
   universes: Record<number, UniverseStatus>
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@ableton-dmx/electron",
+  "name": "@penumbra/electron",
   "version": "0.0.1",
   "private": true,
   "main": "dist/main.js",
@@ -13,7 +13,7 @@
     "package": "electron-builder"
   },
   "dependencies": {
-    "@ableton-dmx/protocol-types": "workspace:*"
+    "@penumbra/protocol-types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -25,11 +25,11 @@
     "typescript": "^5.4.0"
   },
   "build": {
-    "appId": "com.yourname.ableton-dmx",
-    "productName": "Ableton DMX",
+    "appId": "com.footgunz.penumbra",
+    "productName": "Penumbra",
     "extraResources": [
       {
-        "from": "../server/ableton-dmx-server",
+        "from": "../server/penumbra-server",
         "to": "server"
       }
     ],

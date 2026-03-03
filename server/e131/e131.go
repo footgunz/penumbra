@@ -60,7 +60,7 @@ func (d *Dispatcher) Dispatch(state map[string]float64, cfg *config.Config) {
 
 	for universe, dmx := range universes {
 		seq := d.nextSeq(universe)
-		pkt := buildPacket(universe, dmx, seq, d.cid, "ableton-dmx")
+		pkt := buildPacket(universe, dmx, seq, d.cid, "penumbra")
 		addr := universeMulticastAddr(universe)
 		d.send(addr, pkt)
 	}

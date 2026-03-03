@@ -87,12 +87,12 @@ jobs:
         run: >
           GOOS=${{ matrix.goos }}
           GOARCH=${{ matrix.goarch }}
-          go build -o ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }} .
+          go build -o penumbra-server-${{ matrix.suffix }}${{ matrix.ext || '' }} .
         working-directory: server
       - uses: actions/upload-artifact@v4
         with:
           name: server-${{ matrix.suffix }}
-          path: server/ableton-dmx-server-${{ matrix.suffix }}${{ matrix.ext || '' }}
+          path: server/penumbra-server-${{ matrix.suffix }}${{ matrix.ext || '' }}
 
   # ── M4L: build device scripts and pack .amxd ──────────────────────────────
   build-device:

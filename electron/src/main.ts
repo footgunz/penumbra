@@ -22,8 +22,8 @@ let serverProcess: ChildProcess | null = null
 
 function spawnServer(): void {
   const bin = app.isPackaged
-    ? path.join(process.resourcesPath, 'server', 'ableton-dmx-server')
-    : path.join(__dirname, '../../server/ableton-dmx-server')
+    ? path.join(process.resourcesPath, 'server', 'penumbra-server')
+    : path.join(__dirname, '../../server/penumbra-server')
 
   serverProcess = spawn(bin, [], {
     env: { ...process.env, WS_PORT: localPort },
