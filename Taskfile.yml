@@ -18,6 +18,21 @@ tasks:
     cmds:
       - task --list
 
+  # ── Dev Session ──────────────────────────────────────────────────────────────
+
+  dev:
+    desc: Start tmux dev session (Go server + Vite UI + fake emitter)
+    cmds:
+      - tmux kill-session -t penumbra 2>/dev/null || true
+      - tmux new-session  -d -s penumbra -n server
+      - tmux send-keys    -t penumbra:server  'task server:dev' Enter
+      - tmux new-window   -t penumbra -n ui
+      - tmux send-keys    -t penumbra:ui      'task watch:ui'   Enter
+      - tmux new-window   -t penumbra -n emitter
+      - tmux send-keys    -t penumbra:emitter 'task fake'       Enter
+      - tmux select-window -t penumbra:server
+      - tmux attach       -t penumbra
+
   # ── Install ──────────────────────────────────────────────────────────────────
 
   install:
