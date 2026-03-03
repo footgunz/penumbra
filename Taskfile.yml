@@ -211,6 +211,16 @@ tasks:
       UDP_PORT: '{{.UDP_PORT}}'
       WS_PORT: '{{.WS_PORT}}'
 
+  server:tui:
+    desc: Run Go server with TUI dashboard
+    cmds:
+      - go build -o ableton-dmx-server .
+      - ./ableton-dmx-server --tui
+    dir: '{{.SERVER_DIR}}'
+    env:
+      UDP_PORT: '{{.UDP_PORT}}'
+      WS_PORT: '{{.WS_PORT}}'
+
   server:dev:
     desc: Run Go server in dev mode with live reload (requires air)
     cmds:
