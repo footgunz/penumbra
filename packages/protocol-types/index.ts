@@ -48,6 +48,7 @@ export interface StatusMessage {
   type: 'status'
   m4l_state: M4LState
   m4l_last_seen: number
+  blackout: boolean
   universes: Record<number, UniverseStatus>
 }
 
@@ -78,4 +79,14 @@ export interface HotkeyMessage {
   key: string
 }
 
-export type UIMessage = SetConfigMessage | HotkeyMessage
+/** Activate emergency blackout */
+export interface BlackoutMessage {
+  type: 'blackout'
+}
+
+/** Reset from blackout — resume normal operation */
+export interface ResetMessage {
+  type: 'reset'
+}
+
+export type UIMessage = SetConfigMessage | HotkeyMessage | BlackoutMessage | ResetMessage

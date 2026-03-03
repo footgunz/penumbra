@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/footgunz/penumbra/config"
@@ -29,15 +30,20 @@ type Hub struct {
 
 	// Internal state mirror — kept in sync by parsing broadcast messages.
 	// Allows sending a full state snapshot to newly connected clients.
-	stateMu       sync.Mutex
-	sessionID     string
-	lastState     map[string]float64
-	lastTs        int64
+	stateMu        sync.Mutex
+	sessionID      string
+	lastState      map[string]float64
+	lastTs         int64
 	universeOnline map[int]bool
 
 	// Rate-limiter for status broadcasts
 	lastStatus time.Time
 	lastSeen   time.Time
+
+	// Blackout: atomic flag. When set, state/diff messages are still processed
+	// internally but not relayed to WS clients. Status messages always flow.
+	blackout   atomic.Bool
+	onBlackout func() // one-shot callback for E1.31 blackout scene dispatch
 }
 
 type client struct {
@@ -79,6 +85,9 @@ func (h *Hub) Run() {
 
 		case msg := <-h.broadcast:
 			h.applyToInternalState(msg)
+			if h.blackout.Load() {
+				continue
+			}
 			h.mu.Lock()
 			var dead []*client
 			for c := range h.clients {
@@ -170,6 +179,44 @@ func m4lState(lastSeen time.Time, cfg *config.Config) config.M4LState {
 	return config.M4LConnected
 }
 
+// SetOnBlackout registers a function called once when blackout is activated
+// (e.g. to dispatch the blackout scene to E1.31).
+func (h *Hub) SetOnBlackout(fn func()) {
+	h.onBlackout = fn
+}
+
+// Blackout enters blackout mode. State/diff messages stop flowing to WS
+// clients. Status broadcasts continue so UIs can show the blackout banner.
+// The atomic swap is immediate; side effects (E1.31 dispatch, log, status
+// broadcast) run in a goroutine so callers never block.
+func (h *Hub) Blackout() {
+	if h.blackout.CompareAndSwap(false, true) {
+		go func() {
+			if h.onBlackout != nil {
+				h.onBlackout()
+			}
+			log.Printf("BLACKOUT activated")
+			h.BroadcastStatus()
+		}()
+	}
+}
+
+// Reset exits blackout mode and resumes normal message relay.
+// Same non-blocking pattern as Blackout.
+func (h *Hub) Reset() {
+	if h.blackout.CompareAndSwap(true, false) {
+		go func() {
+			log.Printf("BLACKOUT reset — resuming normal operation")
+			h.BroadcastStatus()
+		}()
+	}
+}
+
+// IsBlackout returns true if the server is in blackout mode.
+func (h *Hub) IsBlackout() bool {
+	return h.blackout.Load()
+}
+
 // RunStatusTicker periodically broadcasts status so clients see M4L state
 // transitions (connected → idle → disconnected) even when packets stop.
 func (h *Hub) RunStatusTicker() {
@@ -248,11 +295,13 @@ func (h *Hub) buildStatusMessage() []byte {
 		Type        string                `json:"type"`
 		M4LState    string                `json:"m4l_state"`
 		M4LLastSeen int64                 `json:"m4l_last_seen"`
+		Blackout    bool                  `json:"blackout"`
 		Universes   map[int]universeStatus `json:"universes"`
 	}{
 		Type:        "status",
 		M4LState:    stateStr,
 		M4LLastSeen: lastSeenMs,
+		Blackout:    h.blackout.Load(),
 		Universes:   universes,
 	}
 	data, _ := json.Marshal(msg)
@@ -330,7 +379,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	go c.readPump()
 }
 
-// readPump drains incoming messages (not currently acted on by the server).
+// readPump reads incoming messages and dispatches commands.
 func (c *client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -338,9 +387,21 @@ func (c *client) readPump() {
 	}()
 	c.conn.SetReadLimit(65536)
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			break
+		}
+		var envelope struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(data, &envelope) != nil {
+			continue
+		}
+		switch envelope.Type {
+		case "blackout":
+			c.hub.Blackout()
+		case "reset":
+			c.hub.Reset()
 		}
 	}
 }

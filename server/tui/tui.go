@@ -87,6 +87,13 @@ func marquee(s string, maxWidth, tick int) string {
 	return loop[off : off+maxWidth]
 }
 
+// BlackoutFuncs groups the blackout-related functions the TUI needs.
+type BlackoutFuncs struct {
+	IsActive func() bool // polls current state — atomic, no blocking
+	Trigger  func()      // activates blackout
+	Reset    func()      // clears blackout
+}
+
 // Model is the bubbletea model for the Penumbra TUI.
 type Model struct {
 	params    map[string]float64
@@ -94,9 +101,10 @@ type Model struct {
 	filter    textinput.Model
 	sessionID string
 	tick      int
-	m4lLastSeen      time.Time
-	idleTimeout      time.Duration
+	m4lLastSeen       time.Time
+	idleTimeout       time.Duration
 	disconnectTimeout time.Duration
+	bo                BlackoutFuncs
 	startTime    time.Time
 	universes    map[int]universeInfo
 	logLines     []string
@@ -109,7 +117,7 @@ type Model struct {
 }
 
 // New creates a Model ready for tea.NewProgram.
-func New() Model {
+func New(bo BlackoutFuncs) Model {
 	ti := textinput.New()
 	ti.Placeholder = "type to filter..."
 	ti.Prompt = "/ "
@@ -122,6 +130,7 @@ func New() Model {
 		startTime:         time.Now(),
 		idleTimeout:       5 * time.Second,
 		disconnectTimeout: 3600 * time.Second,
+		bo:                bo,
 		universes:         make(map[int]universeInfo),
 		logLines:          make([]string, 0, 128),
 		focus:             focusParams,
@@ -173,7 +182,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.setFocus(focusUniverses)
 			}
 			return m, nil
+		case "!":
+			if m.bo.Trigger != nil {
+				m.bo.Trigger()
+			}
+			return m, nil
 		case "esc":
+			if m.bo.IsActive != nil && m.bo.IsActive() {
+				if m.bo.Reset != nil {
+					m.bo.Reset()
+				}
+				return m, nil
+			}
 			if m.focus == focusParams {
 				m.filter.SetValue("")
 			} else {
@@ -271,6 +291,7 @@ var (
 	dimStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	barFullStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	barDimStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	blackoutStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("196"))
 )
 
 func (m Model) m4lState() config.M4LState {
@@ -390,6 +411,17 @@ func (m Model) View() string {
 		dimStyle.Render(up.String()),
 		headerStyle.Render(sess)))
 
+	blackout := m.bo.IsActive != nil && m.bo.IsActive()
+	if blackout {
+		banner := " ██ BLACKOUT ACTIVE ██  press esc to reset "
+		pad := m.width - len(banner)
+		if pad > 0 {
+			banner += strings.Repeat(" ", pad)
+		}
+		b.WriteString(blackoutStyle.Render(banner))
+		b.WriteByte('\n')
+	}
+
 	// ── Tab bar ──
 	b.WriteByte('\n')
 	paramTab := inactiveTabStyle.Render(" Parameters ")
@@ -409,7 +441,11 @@ func (m Model) View() string {
 	// ── Main panel ──
 	logH := m.logViewportHeight()
 	// fixed: title(1) + status(1) + blank(1) + tabs(1) + blank(1) + log header(1) + help(1) = 7
-	mainLines := m.height - 7 - logH
+	fixed := 7
+	if blackout {
+		fixed++
+	}
+	mainLines := m.height - fixed - logH
 	if mainLines < 3 {
 		mainLines = 3
 	}
@@ -436,7 +472,11 @@ func (m Model) View() string {
 
 	// ── Help ──
 	b.WriteByte('\n')
-	b.WriteString(dimStyle.Render(" tab/shift+tab navigate  / filter  esc back  ctrl+c quit"))
+	if blackout {
+		b.WriteString(dimStyle.Render(" esc reset blackout  ctrl+c quit"))
+	} else {
+		b.WriteString(dimStyle.Render(" tab/shift+tab navigate  / filter  ! blackout  esc back  ctrl+c quit"))
+	}
 
 	return b.String()
 }
