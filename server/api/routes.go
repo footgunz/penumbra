@@ -14,13 +14,14 @@ import (
 )
 
 // NewRouter wires HTTP routes and returns an *http.Server ready for ListenAndServe.
+// onConfigUpdate is called after a successful POST /api/config (may be nil).
 //
 // Routes:
 //   GET /ws          → WebSocket upgrade
 //   GET /api/config  → Return current config as JSON
 //   POST /api/config → Update universe/parameter mapping and persist
 //   GET /            → Serve embedded Vite/React PWA (ui/dist)
-func NewRouter(hub *ws.Hub, cfg *config.Config, port int) *http.Server {
+func NewRouter(hub *ws.Hub, cfg *config.Config, port int, onConfigUpdate func(*config.Config)) *http.Server {
 	mux := http.NewServeMux()
 
 	// WebSocket endpoint
@@ -63,7 +64,12 @@ func NewRouter(hub *ws.Hub, cfg *config.Config, port int) *http.Server {
 				http.Error(w, "save error", http.StatusInternalServerError)
 				return
 			}
+			log.Printf("api: config updated (%d universes, %d parameters)",
+				len(cfg.Universes), len(cfg.Parameters))
 			hub.BroadcastStatus()
+			if onConfigUpdate != nil {
+				onConfigUpdate(cfg)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"ok":true}`))

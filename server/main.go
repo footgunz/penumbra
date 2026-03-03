@@ -78,7 +78,25 @@ func main() {
 		}
 	})
 
-	router := api.NewRouter(hub, cfg, wsPort)
+	var onConfigUpdate func(*config.Config)
+	if program != nil {
+		onConfigUpdate = func(c *config.Config) {
+			cm := make(tui.ConfigMsg, len(c.Parameters))
+			for param, targets := range c.Parameters {
+				tt := make([]tui.ChannelTarget, len(targets))
+				for i, t := range targets {
+					tt[i] = tui.ChannelTarget{Universe: t.Universe, Channel: t.Channel}
+				}
+				cm[param] = tt
+			}
+			program.Send(cm)
+			for id, u := range c.Universes {
+				program.Send(tui.UniverseMsg{ID: id, Label: u.Label, IP: u.DeviceIP})
+			}
+		}
+	}
+
+	router := api.NewRouter(hub, cfg, wsPort, onConfigUpdate)
 
 	if tuiMode {
 		for id, u := range cfg.Universes {
