@@ -7,36 +7,20 @@
     "2": {
       "device_ip": "192.168.1.102",
       "label": "stage right"
-    },
-    "3": {
-      "device_ip": "192.168.1.99",
-      "label": "stage left"
     }
   },
   "parameters": {
-    "track1_blue": [
-      {
-        "universe": 1,
-        "channel": 4
-      }
-    ],
-    "track1_dimmer": [
-      {
-        "universe": 1,
-        "channel": 1
-      }
-    ],
-    "track1_green": [
-      {
-        "universe": 1,
-        "channel": 3
-      }
-    ],
-    "track1_red": [
-      {
-        "universe": 1,
-        "channel": 2
-      }
-    ]
+    "track1_Dimmer": [{ "universe": 1, "channel": 1 }],
+    "track1_Red":    [{ "universe": 1, "channel": 2 }],
+    "track1_Green":  [{ "universe": 1, "channel": 3 }],
+    "track1_Blue":   [{ "universe": 1, "channel": 4 }],
+    "track1_Strobe": [{ "universe": 1, "channel": 5 }],
+    "track1_Mode":   [{ "universe": 1, "channel": 6 }],
+    "track2_Dimmer": [{ "universe": 2, "channel": 1 }],
+    "track2_Red":    [{ "universe": 2, "channel": 2 }],
+    "track2_Green":  [{ "universe": 2, "channel": 3 }],
+    "track2_Blue":   [{ "universe": 2, "channel": 4 }],
+    "track2_Strobe": [{ "universe": 2, "channel": 5 }],
+    "track2_Mode":   [{ "universe": 2, "channel": 6 }]
   }
 }
