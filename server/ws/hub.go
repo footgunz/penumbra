@@ -38,6 +38,12 @@ type Hub struct {
 	// Rate-limiter for status broadcasts
 	lastStatus time.Time
 	lastSeen   time.Time
+
+	// Blackout state — when true, server ignores incoming state and holds
+	// the blackout scene on E1.31 output.
+	blackout   bool
+	onBlackout func()
+	onReset    func()
 }
 
 type client struct {
@@ -170,6 +176,52 @@ func m4lState(lastSeen time.Time, cfg *config.Config) config.M4LState {
 	return config.M4LConnected
 }
 
+// SetOnBlackout registers callbacks invoked on blackout/reset transitions.
+func (h *Hub) SetOnBlackout(onBlackout, onReset func()) {
+	h.onBlackout = onBlackout
+	h.onReset = onReset
+}
+
+// Blackout enters blackout mode. The server will ignore incoming state and
+// hold the blackout scene until Reset is called.
+func (h *Hub) Blackout() {
+	h.stateMu.Lock()
+	if h.blackout {
+		h.stateMu.Unlock()
+		return
+	}
+	h.blackout = true
+	h.stateMu.Unlock()
+	log.Printf("BLACKOUT activated")
+	if h.onBlackout != nil {
+		h.onBlackout()
+	}
+	h.BroadcastStatus()
+}
+
+// Reset exits blackout mode and resumes normal state processing.
+func (h *Hub) Reset() {
+	h.stateMu.Lock()
+	if !h.blackout {
+		h.stateMu.Unlock()
+		return
+	}
+	h.blackout = false
+	h.stateMu.Unlock()
+	log.Printf("BLACKOUT reset — resuming normal operation")
+	if h.onReset != nil {
+		h.onReset()
+	}
+	h.BroadcastStatus()
+}
+
+// IsBlackout returns true if the server is in blackout mode.
+func (h *Hub) IsBlackout() bool {
+	h.stateMu.Lock()
+	defer h.stateMu.Unlock()
+	return h.blackout
+}
+
 // RunStatusTicker periodically broadcasts status so clients see M4L state
 // transitions (connected → idle → disconnected) even when packets stop.
 func (h *Hub) RunStatusTicker() {
@@ -183,6 +235,7 @@ func (h *Hub) RunStatusTicker() {
 func (h *Hub) buildStatusMessage() []byte {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
+	blackout := h.blackout
 	universeOnline := make(map[int]bool, len(h.universeOnline))
 	for k, v := range h.universeOnline {
 		universeOnline[k] = v
@@ -248,11 +301,13 @@ func (h *Hub) buildStatusMessage() []byte {
 		Type        string                `json:"type"`
 		M4LState    string                `json:"m4l_state"`
 		M4LLastSeen int64                 `json:"m4l_last_seen"`
+		Blackout    bool                  `json:"blackout"`
 		Universes   map[int]universeStatus `json:"universes"`
 	}{
 		Type:        "status",
 		M4LState:    stateStr,
 		M4LLastSeen: lastSeenMs,
+		Blackout:    blackout,
 		Universes:   universes,
 	}
 	data, _ := json.Marshal(msg)
@@ -330,7 +385,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	go c.readPump()
 }
 
-// readPump drains incoming messages (not currently acted on by the server).
+// readPump reads incoming messages and dispatches commands.
 func (c *client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -338,9 +393,21 @@ func (c *client) readPump() {
 	}()
 	c.conn.SetReadLimit(65536)
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, data, err := c.conn.ReadMessage()
 		if err != nil {
 			break
+		}
+		var envelope struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(data, &envelope) != nil {
+			continue
+		}
+		switch envelope.Type {
+		case "blackout":
+			c.hub.Blackout()
+		case "reset":
+			c.hub.Reset()
 		}
 	}
 }

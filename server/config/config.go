@@ -9,10 +9,11 @@ import (
 // Config holds universe and parameter mapping.
 // Loaded from config.json at startup; updated via set_config WebSocket message.
 type Config struct {
-	Universes  map[int]UniverseConfig     `json:"universes"`
-	Parameters map[string]ParameterConfig `json:"parameters"`
-	M4L        M4LConfig                  `json:"m4l"`
-	path       string
+	Universes     map[int]UniverseConfig     `json:"universes"`
+	Parameters    map[string]ParameterConfig `json:"parameters"`
+	M4L           M4LConfig                  `json:"m4l"`
+	BlackoutScene map[string]float64         `json:"blackout_scene"`
+	path          string
 }
 
 // M4LConfig holds timeout thresholds for M4L connection state detection.
