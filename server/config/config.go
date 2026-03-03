@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 )
 
@@ -68,6 +69,8 @@ func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Printf("config: %s not found, using defaults (cwd: %s)", path, cwd())
+			cfg.applyDefaults()
 			return cfg, nil
 		}
 		return nil, err
@@ -87,6 +90,14 @@ func (c *Config) applyDefaults() {
 	if c.M4L.DisconnectTimeoutSec <= 0 {
 		c.M4L.DisconnectTimeoutSec = 3600
 	}
+}
+
+func cwd() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "?"
+	}
+	return dir
 }
 
 // Save writes the config back to the file it was loaded from.

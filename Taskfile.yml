@@ -20,6 +20,24 @@ tasks:
     cmds:
       - task --list
 
+  # ── Clean ────────────────────────────────────────────────────────────────────
+
+  clean:
+    desc: Remove all build artifacts
+    cmds:
+      - rm -f penumbra-server penumbra-server-* ableton-dmx-server ableton-dmx-server-*
+      - rm -rf tmp/
+    dir: '{{.SERVER_DIR}}'
+
+  clean:all:
+    desc: Remove all build artifacts, node_modules, and caches
+    deps: [clean]
+    cmds:
+      - rm -rf node_modules ui/node_modules electron/node_modules device/scripts/node_modules packages/*/node_modules
+      - rm -rf ui/dist electron/dist device/scripts/dist server/ui/dist
+      - rm -rf .task/
+      - rm -f tools/fake-emitter/fake-emitter
+
   # ── Dev Session ──────────────────────────────────────────────────────────────
 
   dev:
