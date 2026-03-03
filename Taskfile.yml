@@ -239,7 +239,14 @@ tasks:
   server:dev:
     desc: Run Go server in dev mode with live reload (requires air)
     cmds:
-      - go run github.com/air-verse/air
+      - |
+        cleanup() {
+          trap - EXIT INT TERM HUP
+          stty sane 2>/dev/null
+          kill 0 2>/dev/null
+        }
+        trap cleanup INT TERM HUP EXIT
+        go run github.com/air-verse/air
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
