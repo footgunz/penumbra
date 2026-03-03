@@ -27,7 +27,7 @@ tasks:
     cmds:
       - tmux kill-session -t penumbra 2>/dev/null || true
       - tmux new-session  -d -s penumbra -n server
-      - tmux send-keys    -t penumbra:server  'task server:dev' Enter
+      - tmux send-keys    -t penumbra:server  'task --watch server:dev' Enter
       - tmux new-window   -t penumbra -n ui
       - tmux send-keys    -t penumbra:ui      'task watch:ui'   Enter
       - tmux new-window   -t penumbra -n emitter
@@ -111,8 +111,8 @@ tasks:
   watch:go:
     desc: Watch and rebuild Go server
     cmds:
-      - go run github.com/air-verse/air
-    dir: '{{.SERVER_DIR}}'
+      - task: server:dev
+    watch: true
 
   watch:device:
     desc: Watch M4L device scripts (autowatch reloads in Max)
@@ -239,14 +239,16 @@ tasks:
       WS_PORT: '{{.WS_PORT}}'
 
   server:dev:
-    desc: Run Go server in dev mode with live reload (requires air)
+    desc: Run Go server in dev mode with live reload
     cmds:
-      - defer: stty sane 2>/dev/null
-      - go run github.com/air-verse/air
+      - go build -o ableton-dmx-server .
+      - ./ableton-dmx-server
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
       WS_PORT: '{{.WS_PORT}}'
+    sources:
+      - '**/*.go'
 
   # ── M4L Device ────────────────────────────────────────────────────────────────
 
