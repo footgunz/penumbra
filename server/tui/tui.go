@@ -66,16 +66,27 @@ type universeInfo struct {
 	online bool
 }
 
-const sessionDisplayWidth = 12
+// marquee returns s truncated to maxWidth. If s is longer, it scrolls
+// through s using tick as the position counter, wrapping with a gap.
+func marquee(s string, maxWidth, tick int) string {
+	if len(s) <= maxWidth {
+		return s
+	}
+	gap := "   "
+	loop := s + gap + s
+	period := len(s) + len(gap)
+	off := tick % period
+	return loop[off : off+maxWidth]
+}
 
 // Model is the bubbletea model for the Penumbra TUI.
 type Model struct {
-	params       map[string]float64
-	configMap    map[string][]ChannelTarget
-	filter       textinput.Model
-	sessionID    string
-	scrollOffset int
-	m4lLastSeen  time.Time
+	params    map[string]float64
+	configMap map[string][]ChannelTarget
+	filter    textinput.Model
+	sessionID string
+	tick      int
+	m4lLastSeen time.Time
 	startTime    time.Time
 	universes    map[int]universeInfo
 	logLines     []string
@@ -187,7 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		newID := string(msg)
 		if m.sessionID != "" && newID != m.sessionID {
 			m.params = make(map[string]float64)
-			m.scrollOffset = 0
+			m.tick = 0
 		}
 		m.sessionID = newID
 		return m, nil
@@ -216,9 +227,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		if len(m.sessionID) > sessionDisplayWidth {
-			m.scrollOffset++
-		}
+		m.tick++
 		return m, tickEvery(time.Second)
 	}
 
@@ -329,10 +338,8 @@ func (m Model) View() string {
 	sess := m.sessionID
 	if sess == "" {
 		sess = "—"
-	} else if len(sess) > sessionDisplayWidth {
-		padded := sess + "   " + sess
-		off := m.scrollOffset % (len(sess) + 3)
-		sess = padded[off : off+sessionDisplayWidth]
+	} else {
+		sess = marquee(sess, 12, m.tick)
 	}
 
 	b.WriteString(fmt.Sprintf(" M4L %s  Universes %s  Uptime %s  Session %s\n",
