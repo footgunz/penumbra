@@ -55,7 +55,8 @@ func tickEvery(d time.Duration) tea.Cmd {
 type focus int
 
 const (
-	focusFilter focus = iota
+	focusParams focus = iota
+	focusUniverses
 	focusLog
 )
 
@@ -97,12 +98,21 @@ func New() Model {
 		startTime: time.Now(),
 		universes: make(map[int]universeInfo),
 		logLines:  make([]string, 0, 128),
-		focus:     focusFilter,
+		focus:     focusParams,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(tickEvery(time.Second), textinput.Blink)
+}
+
+func (m *Model) setFocus(f focus) {
+	m.focus = f
+	if f == focusParams {
+		m.filter.Focus()
+	} else {
+		m.filter.Blur()
+	}
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -113,25 +123,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "q":
-			if m.focus == focusLog {
+			if m.focus != focusParams {
 				m.quitting = true
 				return m, tea.Quit
 			}
 		case "tab":
-			if m.focus == focusFilter {
-				m.focus = focusLog
-				m.filter.Blur()
-			} else {
-				m.focus = focusFilter
-				m.filter.Focus()
+			switch m.focus {
+			case focusParams:
+				m.setFocus(focusUniverses)
+			case focusUniverses:
+				m.setFocus(focusLog)
+			case focusLog:
+				m.setFocus(focusParams)
+			}
+			return m, nil
+		case "shift+tab":
+			switch m.focus {
+			case focusParams:
+				m.setFocus(focusLog)
+			case focusUniverses:
+				m.setFocus(focusParams)
+			case focusLog:
+				m.setFocus(focusUniverses)
 			}
 			return m, nil
 		case "esc":
-			if m.focus == focusFilter {
+			if m.focus == focusParams {
 				m.filter.SetValue("")
 			} else {
-				m.focus = focusFilter
-				m.filter.Focus()
+				m.setFocus(focusParams)
 			}
 			return m, nil
 		}
@@ -196,9 +216,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	if m.focus == focusFilter {
+	switch m.focus {
+	case focusParams:
 		m.filter, cmd = m.filter.Update(msg)
-	} else {
+	case focusLog:
 		m.logViewport, cmd = m.logViewport.Update(msg)
 	}
 	return m, cmd
@@ -207,13 +228,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // --- Styles ---
 
 var (
-	titleStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	headerStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
-	okStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	errStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
-	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	barFullStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	barDimStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	titleStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	headerStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("99"))
+	activeTabStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	inactiveTabStyle = dimStyle
+	okStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+	errStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	dimStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	barFullStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	barDimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 )
 
 func (m Model) logViewportHeight() int {
@@ -222,17 +245,6 @@ func (m Model) logViewportHeight() int {
 		h = 5
 	}
 	return h
-}
-
-// universeChannelLines computes how many lines the universe detail section needs.
-func (m Model) universeChannelLines() int {
-	uIDs := m.sortedUniverseIDs()
-	lines := 0
-	for _, id := range uIDs {
-		lines++ // universe header line
-		lines += len(m.channelsForUniverse(id))
-	}
-	return lines
 }
 
 func (m Model) sortedUniverseIDs() []int {
@@ -296,10 +308,7 @@ func (m Model) View() string {
 		sess = sess[:8]
 	}
 	up := time.Since(m.startTime).Truncate(time.Second)
-	b.WriteString(fmt.Sprintf(" M4L %s  Session %s  Uptime %s\n",
-		m4l, headerStyle.Render(sess), dimStyle.Render(up.String())))
 
-	// ── Universes ──
 	uIDs := m.sortedUniverseIDs()
 	total := len(uIDs)
 	online := 0
@@ -308,8 +317,6 @@ func (m Model) View() string {
 			online++
 		}
 	}
-
-	b.WriteByte('\n')
 	uCountStyle := okStyle
 	if online < total {
 		uCountStyle = errStyle
@@ -317,9 +324,113 @@ func (m Model) View() string {
 	if total == 0 {
 		uCountStyle = dimStyle
 	}
-	b.WriteString(headerStyle.Render(" Universes") + "  " +
-		uCountStyle.Render(fmt.Sprintf("%d/%d online", online, total)))
+
+	b.WriteString(fmt.Sprintf(" M4L %s  Session %s  Universes %s  Uptime %s\n",
+		m4l,
+		headerStyle.Render(sess),
+		uCountStyle.Render(fmt.Sprintf("%d/%d", online, total)),
+		dimStyle.Render(up.String())))
+
+	// ── Tab bar ──
 	b.WriteByte('\n')
+	paramTab := inactiveTabStyle.Render(" Parameters ")
+	univTab := inactiveTabStyle.Render(" Universes ")
+	switch m.focus {
+	case focusParams:
+		paramTab = activeTabStyle.Render("▸Parameters ")
+	case focusUniverses:
+		univTab = activeTabStyle.Render("▸Universes ")
+	}
+	b.WriteString(" " + paramTab + "  " + univTab)
+	if m.focus == focusParams {
+		b.WriteString("  " + m.filter.View())
+	}
+	b.WriteByte('\n')
+
+	// ── Main panel ──
+	logH := m.logViewportHeight()
+	// fixed: title(1) + status(1) + blank(1) + tabs(1) + blank(1) + log header(1) + help(1) = 7
+	mainLines := m.height - 7 - logH
+	if mainLines < 3 {
+		mainLines = 3
+	}
+
+	switch m.focus {
+	case focusParams:
+		m.viewParams(&b, mainLines)
+	case focusUniverses:
+		m.viewUniverses(&b, mainLines)
+	case focusLog:
+		m.viewParams(&b, mainLines)
+	}
+
+	// ── Log ──
+	b.WriteByte('\n')
+	logLabel := headerStyle.Render(" Log")
+	if m.focus == focusLog {
+		logLabel = activeTabStyle.Render("▸Log")
+		logLabel += dimStyle.Render("  ↑↓ scroll  q quit")
+	}
+	b.WriteString(logLabel)
+	b.WriteByte('\n')
+	b.WriteString(m.logViewport.View())
+
+	// ── Help ──
+	b.WriteByte('\n')
+	b.WriteString(dimStyle.Render(" tab/shift+tab navigate  / filter  esc back  ctrl+c quit"))
+
+	return b.String()
+}
+
+func (m Model) viewParams(b *strings.Builder, maxLines int) {
+	filter := strings.ToLower(m.filter.Value())
+	type entry struct {
+		name  string
+		value float64
+	}
+	var filtered []entry
+	for k, v := range m.params {
+		if filter == "" || strings.Contains(strings.ToLower(k), filter) {
+			filtered = append(filtered, entry{k, v})
+		}
+	}
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].name < filtered[j].name })
+
+	nameW, barW := 30, 20
+	if m.width > 100 {
+		nameW, barW = 40, 30
+	}
+
+	for i, p := range filtered {
+		if i >= maxLines {
+			b.WriteString(dimStyle.Render(fmt.Sprintf(" ... and %d more", len(filtered)-maxLines)))
+			b.WriteByte('\n')
+			break
+		}
+		name := p.name
+		if len(name) > nameW {
+			name = name[:nameW-1] + "…"
+		}
+		v := math.Max(0, math.Min(1, p.value))
+		dmx := int(math.Round(v * 255))
+		filled := int(float64(barW) * v)
+		bar := barFullStyle.Render(strings.Repeat("█", filled)) +
+			barDimStyle.Render(strings.Repeat("░", barW-filled))
+		b.WriteString(fmt.Sprintf(" %-*s %s %5.2f %s\n",
+			nameW, name, bar, p.value, dimStyle.Render(fmt.Sprintf("(%3d)", dmx))))
+	}
+	if len(filtered) == 0 {
+		if len(m.params) == 0 {
+			b.WriteString(dimStyle.Render(" Waiting for data..."))
+		} else {
+			b.WriteString(dimStyle.Render(" No parameters match filter"))
+		}
+		b.WriteByte('\n')
+	}
+}
+
+func (m Model) viewUniverses(b *strings.Builder, maxLines int) {
+	uIDs := m.sortedUniverseIDs()
 
 	nameW := 28
 	chBarW := 10
@@ -328,7 +439,17 @@ func (m Model) View() string {
 		chBarW = 16
 	}
 
+	lines := 0
 	for _, id := range uIDs {
+		if lines >= maxLines {
+			remaining := len(uIDs) - lines
+			if remaining > 0 {
+				b.WriteString(dimStyle.Render(fmt.Sprintf(" ... %d more universes", remaining)))
+				b.WriteByte('\n')
+			}
+			break
+		}
+
 		u := m.universes[id]
 		dot := errStyle.Render("●")
 		if u.online {
@@ -343,9 +464,16 @@ func (m Model) View() string {
 			b.WriteString(dimStyle.Render(fmt.Sprintf("  %s", u.ip)))
 		}
 		b.WriteByte('\n')
+		lines++
 
 		channels := m.channelsForUniverse(id)
 		for _, ch := range channels {
+			if lines >= maxLines {
+				b.WriteString(dimStyle.Render("     ..."))
+				b.WriteByte('\n')
+				lines++
+				break
+			}
 			pName := ch.param
 			if len(pName) > nameW {
 				pName = pName[:nameW-1] + "…"
@@ -355,90 +483,16 @@ func (m Model) View() string {
 				barDimStyle.Render(strings.Repeat("░", chBarW-filled))
 			b.WriteString(fmt.Sprintf("     %3d  %-*s %s %s\n",
 				ch.channel, nameW, pName, bar, dimStyle.Render(fmt.Sprintf("%3d", ch.dmx))))
+			lines++
 		}
 		if len(channels) == 0 {
 			b.WriteString(dimStyle.Render("     no channels mapped"))
 			b.WriteByte('\n')
+			lines++
 		}
 	}
-	if total == 0 {
+	if len(uIDs) == 0 {
 		b.WriteString(dimStyle.Render(" No universes configured"))
 		b.WriteByte('\n')
 	}
-
-	// ── Parameters ──
-	b.WriteByte('\n')
-	b.WriteString(headerStyle.Render(" Parameters") + "  " + m.filter.View())
-	b.WriteByte('\n')
-
-	filter := strings.ToLower(m.filter.Value())
-	type entry struct {
-		name  string
-		value float64
-	}
-	var filtered []entry
-	for k, v := range m.params {
-		if filter == "" || strings.Contains(strings.ToLower(k), filter) {
-			filtered = append(filtered, entry{k, v})
-		}
-	}
-	sort.Slice(filtered, func(i, j int) bool { return filtered[i].name < filtered[j].name })
-
-	logH := m.logViewportHeight()
-	uLines := m.universeChannelLines()
-	// fixed: title(1) + status(1) + blank(1) + universe header(1) + blank(1)
-	//        + param header(1) + blank(1) + log header(1) + help(1) = 9
-	fixedLines := 9
-	paramLines := m.height - fixedLines - logH - uLines
-	if paramLines < 3 {
-		paramLines = 3
-	}
-
-	pNameW, pBarW := 30, 20
-	if m.width > 100 {
-		pNameW, pBarW = 40, 30
-	}
-
-	for i, p := range filtered {
-		if i >= paramLines {
-			b.WriteString(dimStyle.Render(fmt.Sprintf(" ... and %d more", len(filtered)-paramLines)))
-			b.WriteByte('\n')
-			break
-		}
-		name := p.name
-		if len(name) > pNameW {
-			name = name[:pNameW-1] + "…"
-		}
-		v := math.Max(0, math.Min(1, p.value))
-		dmx := int(math.Round(v * 255))
-		filled := int(float64(pBarW) * v)
-		bar := barFullStyle.Render(strings.Repeat("█", filled)) +
-			barDimStyle.Render(strings.Repeat("░", pBarW-filled))
-		b.WriteString(fmt.Sprintf(" %-*s %s %5.2f %s\n",
-			pNameW, name, bar, p.value, dimStyle.Render(fmt.Sprintf("(%3d)", dmx))))
-	}
-	if len(filtered) == 0 {
-		if len(m.params) == 0 {
-			b.WriteString(dimStyle.Render(" Waiting for data..."))
-		} else {
-			b.WriteString(dimStyle.Render(" No parameters match filter"))
-		}
-		b.WriteByte('\n')
-	}
-
-	// ── Log ──
-	b.WriteByte('\n')
-	hint := ""
-	if m.focus == focusLog {
-		hint = dimStyle.Render("  ↑↓ scroll  q quit")
-	}
-	b.WriteString(headerStyle.Render(" Log") + hint)
-	b.WriteByte('\n')
-	b.WriteString(m.logViewport.View())
-
-	// ── Help ──
-	b.WriteByte('\n')
-	b.WriteString(dimStyle.Render(" tab focus  / filter  esc clear  ctrl+c quit"))
-
-	return b.String()
 }
