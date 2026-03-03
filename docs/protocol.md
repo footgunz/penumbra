@@ -12,6 +12,8 @@ server ↔ UI                 WebSocket (JSON)          — monitoring / config
 
 M4L is a dumb state emitter. All diff computation, keyframe scheduling, universe partitioning, and E1.31 dispatch are owned by the Go server.
 
+> **Writing your own emitter?** See [emitter-spec.md](emitter-spec.md) for a self-contained spec with code examples in Python, JavaScript, and Go. The server is emitter-agnostic — any software that sends the right UDP packets can drive DMX output.
+
 ---
 
 ## 1. M4L → Server — Full State Emission

@@ -81,6 +81,7 @@ See [docs/development.md](docs/development.md) for the full dev guide.
 |----------|-------------|
 | [architecture.md](docs/architecture.md) | System overview, component responsibilities, data flow |
 | [protocol.md](docs/protocol.md) | Wire format — UDP, E1.31, WebSocket |
+| [emitter-spec.md](docs/emitter-spec.md) | Write your own emitter — standalone spec for any language/platform |
 | [config.md](docs/config.md) | `config.json` schema reference |
 | [development.md](docs/development.md) | Dev setup, fake emitter, task reference |
 | [deployment.md](docs/deployment.md) | Headless Linux/Pi setup and deployment |
