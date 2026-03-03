@@ -241,7 +241,8 @@ tasks:
   server:dev:
     desc: Run Go server in dev mode with live reload (requires air)
     cmds:
-      - ../scripts/air-wrapper.sh
+      - defer: stty sane 2>/dev/null
+      - go run github.com/air-verse/air
     dir: '{{.SERVER_DIR}}'
     env:
       UDP_PORT: '{{.UDP_PORT}}'
