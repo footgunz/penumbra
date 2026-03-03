@@ -1,109 +1,191 @@
-// main.ts — Max entry point for M4L UDP state emitter.
+// main.ts — M4L channel strip emitter.
 //
-// Constraints:
-//   - No async/await, no optional chaining (?.), no nullish coalescing (??)
-//   - Max globals (Task, LiveAPI, outlet, post) accessed directly — they are
-//     provided by the Max runtime and are NOT imported.
-//   - All library code lives in lib/ and receives Max globals via injection.
+// Architecture:
+//   - 16 live.dial objects in the patch (always present, visibility managed by thispatcher)
+//   - Inlet 0: preset index from live.menu (int)
+//   - Inlets 1–16: dial values (float 0.0–1.0) for channel slots 1–16
+//   - lomTask (40ms): reads track name → emitter.setFixtureName()
+//   - emitTask (40ms, +20ms offset): calls emitter.emit()
 //
-// Architecture: two Tasks at 40ms interval, offset by 20ms (split-tick pattern).
-//   lomTask  → reads Live Object Model on even ticks
-//   emitTask → serialises and sends via UDP on odd ticks
+// Split-tick pattern preserved: LOM read and emit run on separate 40ms tasks
+// offset by 20ms so each tick does exactly one thing.
 //
-// outlet 0 receives byte-array UDP payload, wired to [udpsend] in device.maxpat.
+// Constraints: no async/await, no ?., no ??. Use var in all function bodies.
 
-// Max globals — declared to satisfy TypeScript; provided by the Max runtime.
+// ─── Max globals ─────────────────────────────────────────────────────────────
+
 declare var Task: new (fn: () => void) => {
   interval: number
   delay: number
   start(): void
 }
 declare var LiveAPI: new (callback: ((args: string[]) => void) | null, path: string) => {
-  path: string
-  id: string
   get(prop: string): unknown[]
-  getcount(prop: string): number
-  goto(path: string): void
 }
+declare var autowatch: number
+declare var inlets: number
+declare var outlets: number
+declare var inlet: number
 declare function outlet(n: number, ...args: unknown[]): void
 declare function post(...args: unknown[]): void
 
 import { createEmitter } from './lib/emitter'
 
-// Wired to [udpsend] in device.maxpat, pre-configured with target host:port
+// ─── Presets ──────────────────────────────────────────────────────────────────
+//
+// Each preset defines which of the 16 channel slots are active and what label
+// they carry. Slots beyond the preset's channel count are marked inactive.
+// Labels are from the well-known set: Dimmer, Red, Green, Blue, White, Pan,
+// Tilt, Strobe, Gobo, Zoom, Focus, Color, Speed, Mode.
+//
+// Adding a new fixture type = adding an entry here + a new release.
+
+interface PresetChannel {
+  label: string
+  active: boolean
+}
+
+interface Preset {
+  name: string
+  channels: PresetChannel[]  // always 16 entries
+}
+
+function padChannels(active: Array<{ label: string }>): PresetChannel[] {
+  var result: PresetChannel[] = []
+  for (var i = 0; i < 16; i++) {
+    if (i < active.length) {
+      result.push({ label: active[i].label, active: true })
+    } else {
+      result.push({ label: 'ch' + (i + 1), active: false })
+    }
+  }
+  return result
+}
+
+var PRESETS: Preset[] = [
+  {
+    name: 'Single Dimmer',
+    channels: padChannels([
+      { label: 'Dimmer' },
+    ]),
+  },
+  {
+    name: '4ch RGBW Par',
+    channels: padChannels([
+      { label: 'Red' },
+      { label: 'Green' },
+      { label: 'Blue' },
+      { label: 'White' },
+    ]),
+  },
+  {
+    name: '6ch PAR',
+    channels: padChannels([
+      { label: 'Dimmer' },
+      { label: 'Red' },
+      { label: 'Green' },
+      { label: 'Blue' },
+      { label: 'Strobe' },
+      { label: 'Mode' },
+    ]),
+  },
+  {
+    name: 'Moving Head Basic',
+    channels: padChannels([
+      { label: 'Pan' },
+      { label: 'Tilt' },
+      { label: 'Dimmer' },
+      { label: 'Color' },
+      { label: 'Gobo' },
+      { label: 'Speed' },
+    ]),
+  },
+]
+
+// ─── Setup ───────────────────────────────────────────────────────────────────
+
+autowatch = 1
+inlets = 17   // 0 = preset selector, 1–16 = dial values
+outlets = 1   // outlet 0 → [udpsend]
+
 function udpSend(bytes: number[]): void {
   outlet(0, bytes)
 }
 
 var emitter = createEmitter(udpSend)
 
+// ─── Preset application ───────────────────────────────────────────────────────
+
+function applyPreset(idx: number): void {
+  if (idx < 0 || idx >= PRESETS.length) {
+    post('Penumbra: preset index out of range:', idx, '\n')
+    return
+  }
+  var preset = PRESETS[idx]
+  emitter.setChannels(preset.channels)
+  post('Penumbra: preset applied —', preset.name, '\n')
+
+  // TODO (Max patch work): send thispatcher messages to show/hide live.dial objects.
+  // Example for slot 0 (requires a named [send] in the patch wired to dial1's [hidden] inlet):
+  //   messnamed('dial1_visibility', preset.channels[0].active ? 0 : 1)
+  // All 16 dials remain visible in the PoC patch — this is deferred.
+}
+
+// ─── Inlet handlers ──────────────────────────────────────────────────────────
+//
+// inlet 0  — preset index from live.menu (integer, 0-indexed)
+// inlets 1–16 — float values (0.0–1.0) from live.dial objects
+
+function msg_int(v: number): void {
+  if (inlet === 0) {
+    applyPreset(v)
+  } else {
+    // live.dial outputs floats on inlets 1-16; an int here is unexpected.
+    post('Penumbra: unexpected int on dial inlet', inlet, '— ignoring\n')
+  }
+}
+
+function msg_float(v: number): void {
+  if (inlet > 0) {
+    emitter.setChannelValue(inlet - 1, v)  // live.dial already outputs 0.0–1.0
+  }
+}
+
 // ─── Track-change observer ────────────────────────────────────────────────────
-// Resets the session ID whenever tracks are added or deleted so the server
-// knows to discard accumulated state from the previous session layout.
+// Resets session ID when tracks are added or deleted.
 
 var liveSet = new LiveAPI(function(args) {
   if (args[0] === 'tracks') {
     emitter.resetSession()
-    post('Penumbra: track change detected — session reset\n')
+    post('Penumbra: track change — session reset\n')
   }
 }, 'live_set')
 
-// ─── LOM read ────────────────────────────────────────────────────────────────
+// ─── LOM read (track name only) ──────────────────────────────────────────────
 //
-// mixer_device.volume, .panning, and .sends[n] are DeviceParameter child
-// objects. Calling get('volume') on the mixer returns the parameter's id, not
-// its value. Navigate to the DeviceParameter path and read 'value', 'min',
-// 'max' separately, then normalise to 0.0–1.0.
+// Reads this device's parent track name and sets it as the fixture prefix.
+// Called every lomTask tick (40ms) to pick up renames.
+// Much lighter than the old full-LOM traversal — no mixer scraping.
 
-function normParam(paramPath: string): number {
-  var p = new LiveAPI(null, paramPath)
-  var val = p.get('value')[0] as number
-  var min = p.get('min')[0] as number
-  var max = p.get('max')[0] as number
-  if (max <= min) { return 0 }
-  var n = (val - min) / (max - min)
-  if (n < 0) { return 0 }
-  if (n > 1) { return 1 }
-  return n
-}
-
-function readTrackParams(trackPath: string): void {
-  var track = new LiveAPI(null, trackPath)
-  var rawName = track.get('name')[0] as string
-  var safeName = rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
-  var mixerPath = trackPath + ' mixer_device'
-  var mixer = new LiveAPI(null, mixerPath)
-
-  emitter.setParam(safeName + '_volume', normParam(mixerPath + ' volume'))
-  emitter.setParam(safeName + '_pan',    normParam(mixerPath + ' panning'))
-
-  var sendCount = mixer.getcount('sends')
-  for (var s = 0; s < sendCount; s++) {
-    emitter.setParam(safeName + '_send_' + s, normParam(mixerPath + ' sends ' + s))
-  }
-}
-
-function readLOM(): void {
+function readTrackName(): void {
   try {
-    var root = new LiveAPI(null, 'live_set')
-
-    var trackCount = root.getcount('tracks')
-    for (var i = 0; i < trackCount; i++) {
-      readTrackParams('live_set tracks ' + i)
-    }
-
-    // Return tracks (reverb/delay sends) could be added here if needed:
-    // for (var r = 0; r < root.getcount('return_tracks'); r++) {
-    //   readTrackParams('live_set return_tracks ' + r, 'return_')
-    // }
+    var device = new LiveAPI(null, 'this_device')
+    var canonicalParent = device.get('canonical_parent')
+    // canonical_parent returns ['id', <id_number>] — navigate by id
+    var parentId = canonicalParent[1] as string
+    var track = new LiveAPI(null, 'id ' + parentId)
+    var rawName = track.get('name')[0] as string
+    var safeName = rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+    emitter.setFixtureName(safeName)
   } catch (e) {
-    post('M4L LOM read error:', e, '\n')
+    post('Penumbra: error reading track name:', e, '\n')
   }
 }
 
 // ─── Tasks ───────────────────────────────────────────────────────────────────
+// Split-tick: lomTask reads track name, emitTask sends UDP, offset by 20ms.
 
-var lomTask = new Task(readLOM)
+var lomTask = new Task(readTrackName)
 lomTask.interval = 40
 
 var emitTask = new Task(function() {
@@ -115,4 +197,7 @@ emitTask.delay = 20
 lomTask.start()
 emitTask.start()
 
-post('Penumbra M4L emitter started\n')
+// Apply initial preset after all setup is complete.
+applyPreset(0)
+
+post('Penumbra M4L channel strip emitter started\n')
