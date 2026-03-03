@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/footgunz/penumbra/config"
@@ -29,21 +30,20 @@ type Hub struct {
 
 	// Internal state mirror — kept in sync by parsing broadcast messages.
 	// Allows sending a full state snapshot to newly connected clients.
-	stateMu       sync.Mutex
-	sessionID     string
-	lastState     map[string]float64
-	lastTs        int64
+	stateMu        sync.Mutex
+	sessionID      string
+	lastState      map[string]float64
+	lastTs         int64
 	universeOnline map[int]bool
 
 	// Rate-limiter for status broadcasts
 	lastStatus time.Time
 	lastSeen   time.Time
 
-	// Blackout state — when true, server ignores incoming state and holds
-	// the blackout scene on E1.31 output.
-	blackout   bool
-	onBlackout func()
-	onReset    func()
+	// Blackout: atomic flag. When set, state/diff messages are still processed
+	// internally but not relayed to WS clients. Status messages always flow.
+	blackout   atomic.Bool
+	onBlackout func() // one-shot callback for E1.31 blackout scene dispatch
 }
 
 type client struct {
@@ -85,6 +85,9 @@ func (h *Hub) Run() {
 
 		case msg := <-h.broadcast:
 			h.applyToInternalState(msg)
+			if h.blackout.Load() {
+				continue
+			}
 			h.mu.Lock()
 			var dead []*client
 			for c := range h.clients {
@@ -176,50 +179,35 @@ func m4lState(lastSeen time.Time, cfg *config.Config) config.M4LState {
 	return config.M4LConnected
 }
 
-// SetOnBlackout registers callbacks invoked on blackout/reset transitions.
-func (h *Hub) SetOnBlackout(onBlackout, onReset func()) {
-	h.onBlackout = onBlackout
-	h.onReset = onReset
+// SetOnBlackout registers a function called once when blackout is activated
+// (e.g. to dispatch the blackout scene to E1.31).
+func (h *Hub) SetOnBlackout(fn func()) {
+	h.onBlackout = fn
 }
 
-// Blackout enters blackout mode. The server will ignore incoming state and
-// hold the blackout scene until Reset is called.
+// Blackout enters blackout mode. State/diff messages stop flowing to WS
+// clients. Status broadcasts continue so UIs can show the blackout banner.
 func (h *Hub) Blackout() {
-	h.stateMu.Lock()
-	if h.blackout {
-		h.stateMu.Unlock()
-		return
+	if h.blackout.CompareAndSwap(false, true) {
+		if h.onBlackout != nil {
+			h.onBlackout()
+		}
+		log.Printf("BLACKOUT activated")
+		h.BroadcastStatus()
 	}
-	h.blackout = true
-	h.stateMu.Unlock()
-	log.Printf("BLACKOUT activated")
-	if h.onBlackout != nil {
-		h.onBlackout()
-	}
-	h.BroadcastStatus()
 }
 
-// Reset exits blackout mode and resumes normal state processing.
+// Reset exits blackout mode and resumes normal message relay.
 func (h *Hub) Reset() {
-	h.stateMu.Lock()
-	if !h.blackout {
-		h.stateMu.Unlock()
-		return
+	if h.blackout.CompareAndSwap(true, false) {
+		log.Printf("BLACKOUT reset — resuming normal operation")
+		h.BroadcastStatus()
 	}
-	h.blackout = false
-	h.stateMu.Unlock()
-	log.Printf("BLACKOUT reset — resuming normal operation")
-	if h.onReset != nil {
-		h.onReset()
-	}
-	h.BroadcastStatus()
 }
 
 // IsBlackout returns true if the server is in blackout mode.
 func (h *Hub) IsBlackout() bool {
-	h.stateMu.Lock()
-	defer h.stateMu.Unlock()
-	return h.blackout
+	return h.blackout.Load()
 }
 
 // RunStatusTicker periodically broadcasts status so clients see M4L state
@@ -235,7 +223,6 @@ func (h *Hub) RunStatusTicker() {
 func (h *Hub) buildStatusMessage() []byte {
 	h.stateMu.Lock()
 	lastSeen := h.lastSeen
-	blackout := h.blackout
 	universeOnline := make(map[int]bool, len(h.universeOnline))
 	for k, v := range h.universeOnline {
 		universeOnline[k] = v
@@ -307,7 +294,7 @@ func (h *Hub) buildStatusMessage() []byte {
 		Type:        "status",
 		M4LState:    stateStr,
 		M4LLastSeen: lastSeenMs,
-		Blackout:    blackout,
+		Blackout:    h.blackout.Load(),
 		Universes:   universes,
 	}
 	data, _ := json.Marshal(msg)

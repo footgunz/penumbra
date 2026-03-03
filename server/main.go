@@ -40,10 +40,11 @@ func main() {
 	// Create TUI program early so goroutine callbacks can reference it.
 	var program *tea.Program
 	if tuiMode {
-		m := tui.New(
-			func() { go hub.Blackout() },
-			func() { go hub.Reset() },
-		)
+		m := tui.New(tui.BlackoutFuncs{
+			IsActive: hub.IsBlackout,
+			Trigger:  func() { go hub.Blackout() },
+			Reset:    func() { go hub.Reset() },
+		})
 		program = tea.NewProgram(m, tea.WithAltScreen())
 		log.SetOutput(tui.NewLogWriter(program))
 		log.SetFlags(log.Ltime)
@@ -55,42 +56,35 @@ func main() {
 
 	dispatcher := e131.NewDispatcher(cfg)
 
-	hub.SetOnBlackout(
-		func() {
-			scene := cfg.BlackoutScene
-			if len(scene) == 0 {
-				scene = make(map[string]float64, len(cfg.Parameters))
-				for p := range cfg.Parameters {
-					scene[p] = 0
-				}
+	blackoutScene := func() map[string]float64 {
+		scene := cfg.BlackoutScene
+		if len(scene) == 0 {
+			scene = make(map[string]float64, len(cfg.Parameters))
+			for p := range cfg.Parameters {
+				scene[p] = 0
 			}
-			dispatcher.Dispatch(scene, cfg)
-			if program != nil {
-				go program.Send(tui.BlackoutMsg(true))
-			}
-		},
-		func() {
-			if program != nil {
-				go program.Send(tui.BlackoutMsg(false))
-			}
-		},
-	)
+		}
+		return scene
+	}
+
+	hub.SetOnBlackout(func() {
+		dispatcher.Dispatch(blackoutScene(), cfg)
+	})
 
 	receiver := udp.NewReceiver(udpPort, func(pkt udp.StatePacket) {
+		hub.MaybebroadcastStatus(pkt.SessionID)
 		if program != nil {
 			program.Send(tui.M4LSeenMsg{})
 			program.Send(tui.SessionMsg(pkt.SessionID))
 		}
-		hub.MaybebroadcastStatus(pkt.SessionID)
 
-		if hub.IsBlackout() {
-			return
-		}
 		changed := stateMirror.Update(pkt)
 		if changed {
-			dispatcher.Dispatch(pkt.State, cfg)
 			if program != nil {
 				program.Send(tui.ParamUpdateMsg(pkt.State))
+			}
+			if !hub.IsBlackout() {
+				dispatcher.Dispatch(pkt.State, cfg)
 			}
 		}
 	})

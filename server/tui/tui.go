@@ -49,9 +49,6 @@ type M4LTimeoutsMsg struct {
 	DisconnectTimeout time.Duration
 }
 
-// BlackoutMsg carries the blackout state (true = active, false = cleared).
-type BlackoutMsg bool
-
 // LogMsg carries a single log line.
 type LogMsg string
 
@@ -90,6 +87,13 @@ func marquee(s string, maxWidth, tick int) string {
 	return loop[off : off+maxWidth]
 }
 
+// BlackoutFuncs groups the blackout-related functions the TUI needs.
+type BlackoutFuncs struct {
+	IsActive func() bool // polls current state — atomic, no blocking
+	Trigger  func()      // activates blackout
+	Reset    func()      // clears blackout
+}
+
 // Model is the bubbletea model for the Penumbra TUI.
 type Model struct {
 	params    map[string]float64
@@ -100,9 +104,7 @@ type Model struct {
 	m4lLastSeen       time.Time
 	idleTimeout       time.Duration
 	disconnectTimeout time.Duration
-	blackout          bool
-	onBlackout        func()
-	onReset           func()
+	bo                BlackoutFuncs
 	startTime    time.Time
 	universes    map[int]universeInfo
 	logLines     []string
@@ -115,8 +117,7 @@ type Model struct {
 }
 
 // New creates a Model ready for tea.NewProgram.
-// onBlackout and onReset are called when the user triggers blackout/reset from the TUI.
-func New(onBlackout, onReset func()) Model {
+func New(bo BlackoutFuncs) Model {
 	ti := textinput.New()
 	ti.Placeholder = "type to filter..."
 	ti.Prompt = "/ "
@@ -129,8 +130,7 @@ func New(onBlackout, onReset func()) Model {
 		startTime:         time.Now(),
 		idleTimeout:       5 * time.Second,
 		disconnectTimeout: 3600 * time.Second,
-		onBlackout:        onBlackout,
-		onReset:           onReset,
+		bo:                bo,
 		universes:         make(map[int]universeInfo),
 		logLines:          make([]string, 0, 128),
 		focus:             focusParams,
@@ -183,14 +183,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "!":
-			if m.onBlackout != nil {
-				m.onBlackout()
+			if m.bo.Trigger != nil {
+				m.bo.Trigger()
 			}
 			return m, nil
 		case "esc":
-			if m.blackout {
-				if m.onReset != nil {
-					m.onReset()
+			if m.bo.IsActive != nil && m.bo.IsActive() {
+				if m.bo.Reset != nil {
+					m.bo.Reset()
 				}
 				return m, nil
 			}
@@ -242,10 +242,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case M4LTimeoutsMsg:
 		m.idleTimeout = msg.IdleTimeout
 		m.disconnectTimeout = msg.DisconnectTimeout
-		return m, nil
-
-	case BlackoutMsg:
-		m.blackout = bool(msg)
 		return m, nil
 
 	case UniverseMsg:
@@ -415,7 +411,8 @@ func (m Model) View() string {
 		dimStyle.Render(up.String()),
 		headerStyle.Render(sess)))
 
-	if m.blackout {
+	blackout := m.bo.IsActive != nil && m.bo.IsActive()
+	if blackout {
 		banner := " ██ BLACKOUT ACTIVE ██  press esc to reset "
 		pad := m.width - len(banner)
 		if pad > 0 {
@@ -445,8 +442,8 @@ func (m Model) View() string {
 	logH := m.logViewportHeight()
 	// fixed: title(1) + status(1) + blank(1) + tabs(1) + blank(1) + log header(1) + help(1) = 7
 	fixed := 7
-	if m.blackout {
-		fixed++ // blackout banner
+	if blackout {
+		fixed++
 	}
 	mainLines := m.height - fixed - logH
 	if mainLines < 3 {
@@ -475,7 +472,7 @@ func (m Model) View() string {
 
 	// ── Help ──
 	b.WriteByte('\n')
-	if m.blackout {
+	if blackout {
 		b.WriteString(dimStyle.Render(" esc reset blackout  ctrl+c quit"))
 	} else {
 		b.WriteString(dimStyle.Render(" tab/shift+tab navigate  / filter  ! blackout  esc back  ctrl+c quit"))
