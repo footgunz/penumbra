@@ -84,6 +84,17 @@ func main() {
 		for id, u := range cfg.Universes {
 			go program.Send(tui.UniverseMsg{ID: id, Label: u.Label, IP: u.DeviceIP})
 		}
+		go func() {
+			cm := make(tui.ConfigMsg, len(cfg.Parameters))
+			for param, targets := range cfg.Parameters {
+				tt := make([]tui.ChannelTarget, len(targets))
+				for i, t := range targets {
+					tt[i] = tui.ChannelTarget{Universe: t.Universe, Channel: t.Channel}
+				}
+				cm[param] = tt
+			}
+			program.Send(cm)
+		}()
 		go receiver.Listen()
 		go prober.Run()
 		go func() {

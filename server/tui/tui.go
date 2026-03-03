@@ -32,6 +32,15 @@ type UniverseMsg struct {
 	Online bool
 }
 
+// ChannelTarget identifies a DMX channel within a universe.
+type ChannelTarget struct {
+	Universe int
+	Channel  int
+}
+
+// ConfigMsg carries the parameter-to-DMX-channel mapping from server config.
+type ConfigMsg map[string][]ChannelTarget
+
 // LogMsg carries a single log line.
 type LogMsg string
 
@@ -59,6 +68,7 @@ type universeInfo struct {
 // Model is the bubbletea model for the Penumbra TUI.
 type Model struct {
 	params      map[string]float64
+	configMap   map[string][]ChannelTarget
 	filter      textinput.Model
 	sessionID   string
 	m4lLastSeen time.Time
@@ -140,6 +150,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case ConfigMsg:
+		m.configMap = map[string][]ChannelTarget(msg)
+		return m, nil
+
 	case ParamUpdateMsg:
 		for k, v := range msg {
 			m.params[k] = v
@@ -203,11 +217,58 @@ var (
 )
 
 func (m Model) logViewportHeight() int {
-	h := m.height / 3
+	h := m.height / 4
 	if h < 5 {
 		h = 5
 	}
 	return h
+}
+
+// universeChannelLines computes how many lines the universe detail section needs.
+func (m Model) universeChannelLines() int {
+	uIDs := m.sortedUniverseIDs()
+	lines := 0
+	for _, id := range uIDs {
+		lines++ // universe header line
+		lines += len(m.channelsForUniverse(id))
+	}
+	return lines
+}
+
+func (m Model) sortedUniverseIDs() []int {
+	ids := make([]int, 0, len(m.universes))
+	for id := range m.universes {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	return ids
+}
+
+type channelEntry struct {
+	channel int
+	param   string
+	dmx     int
+	value   float64
+}
+
+func (m Model) channelsForUniverse(uid int) []channelEntry {
+	var entries []channelEntry
+	for param, targets := range m.configMap {
+		for _, t := range targets {
+			if t.Universe != uid {
+				continue
+			}
+			v := math.Max(0, math.Min(1, m.params[param]))
+			entries = append(entries, channelEntry{
+				channel: t.Channel,
+				param:   param,
+				dmx:     int(math.Round(v * 255)),
+				value:   v,
+			})
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].channel < entries[j].channel })
+	return entries
 }
 
 func (m Model) View() string {
@@ -239,27 +300,34 @@ func (m Model) View() string {
 		m4l, headerStyle.Render(sess), dimStyle.Render(up.String())))
 
 	// ── Universes ──
-	total, online := 0, 0
-	uIDs := make([]int, 0, len(m.universes))
-	for id := range m.universes {
-		uIDs = append(uIDs, id)
-		total++
-	}
-	sort.Ints(uIDs)
+	uIDs := m.sortedUniverseIDs()
+	total := len(uIDs)
+	online := 0
 	for _, id := range uIDs {
 		if m.universes[id].online {
 			online++
 		}
 	}
-	uStyle := okStyle
+
+	b.WriteByte('\n')
+	uCountStyle := okStyle
 	if online < total {
-		uStyle = errStyle
+		uCountStyle = errStyle
 	}
 	if total == 0 {
-		uStyle = dimStyle
+		uCountStyle = dimStyle
 	}
-	uParts := []string{fmt.Sprintf(" Universes %s",
-		uStyle.Render(fmt.Sprintf("%d/%d online", online, total)))}
+	b.WriteString(headerStyle.Render(" Universes") + "  " +
+		uCountStyle.Render(fmt.Sprintf("%d/%d online", online, total)))
+	b.WriteByte('\n')
+
+	nameW := 28
+	chBarW := 10
+	if m.width > 100 {
+		nameW = 36
+		chBarW = 16
+	}
+
 	for _, id := range uIDs {
 		u := m.universes[id]
 		dot := errStyle.Render("●")
@@ -268,12 +336,35 @@ func (m Model) View() string {
 		}
 		label := u.label
 		if label == "" {
-			label = fmt.Sprintf("U%d", id)
+			label = fmt.Sprintf("Universe %d", id)
 		}
-		uParts = append(uParts, fmt.Sprintf("%s %s", dot, dimStyle.Render(label)))
+		b.WriteString(fmt.Sprintf(" %s %s", dot, label))
+		if u.ip != "" {
+			b.WriteString(dimStyle.Render(fmt.Sprintf("  %s", u.ip)))
+		}
+		b.WriteByte('\n')
+
+		channels := m.channelsForUniverse(id)
+		for _, ch := range channels {
+			pName := ch.param
+			if len(pName) > nameW {
+				pName = pName[:nameW-1] + "…"
+			}
+			filled := int(float64(chBarW) * ch.value)
+			bar := barFullStyle.Render(strings.Repeat("█", filled)) +
+				barDimStyle.Render(strings.Repeat("░", chBarW-filled))
+			b.WriteString(fmt.Sprintf("     %3d  %-*s %s %s\n",
+				ch.channel, nameW, pName, bar, dimStyle.Render(fmt.Sprintf("%3d", ch.dmx))))
+		}
+		if len(channels) == 0 {
+			b.WriteString(dimStyle.Render("     no channels mapped"))
+			b.WriteByte('\n')
+		}
 	}
-	b.WriteString(strings.Join(uParts, "  "))
-	b.WriteByte('\n')
+	if total == 0 {
+		b.WriteString(dimStyle.Render(" No universes configured"))
+		b.WriteByte('\n')
+	}
 
 	// ── Parameters ──
 	b.WriteByte('\n')
@@ -294,15 +385,18 @@ func (m Model) View() string {
 	sort.Slice(filtered, func(i, j int) bool { return filtered[i].name < filtered[j].name })
 
 	logH := m.logViewportHeight()
-	fixedLines := 7 // title + status + universes + blank + param header + blank + log header
-	paramLines := m.height - fixedLines - logH
-	if paramLines < 1 {
-		paramLines = 1
+	uLines := m.universeChannelLines()
+	// fixed: title(1) + status(1) + blank(1) + universe header(1) + blank(1)
+	//        + param header(1) + blank(1) + log header(1) + help(1) = 9
+	fixedLines := 9
+	paramLines := m.height - fixedLines - logH - uLines
+	if paramLines < 3 {
+		paramLines = 3
 	}
 
-	nameW, barW := 30, 20
+	pNameW, pBarW := 30, 20
 	if m.width > 100 {
-		nameW, barW = 40, 30
+		pNameW, pBarW = 40, 30
 	}
 
 	for i, p := range filtered {
@@ -312,16 +406,16 @@ func (m Model) View() string {
 			break
 		}
 		name := p.name
-		if len(name) > nameW {
-			name = name[:nameW-1] + "…"
+		if len(name) > pNameW {
+			name = name[:pNameW-1] + "…"
 		}
 		v := math.Max(0, math.Min(1, p.value))
 		dmx := int(math.Round(v * 255))
-		filled := int(float64(barW) * v)
+		filled := int(float64(pBarW) * v)
 		bar := barFullStyle.Render(strings.Repeat("█", filled)) +
-			barDimStyle.Render(strings.Repeat("░", barW-filled))
+			barDimStyle.Render(strings.Repeat("░", pBarW-filled))
 		b.WriteString(fmt.Sprintf(" %-*s %s %5.2f %s\n",
-			nameW, name, bar, p.value, dimStyle.Render(fmt.Sprintf("(%3d)", dmx))))
+			pNameW, name, bar, p.value, dimStyle.Render(fmt.Sprintf("(%3d)", dmx))))
 	}
 	if len(filtered) == 0 {
 		if len(m.params) == 0 {
