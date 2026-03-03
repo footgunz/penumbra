@@ -1,953 +1,194 @@
-# Fixture Library Implementation Plan
+# Fixture Library — M4L Channel Strip (PoC) Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the flat `parameter → {universe, channel}` model with a fixture library — built-in profiles (Generic Par RGB/W, WLED Zone, Moving Head, Strobe), fixture instances in config, and a per-fixture M4L emitter that emits semantic parameters.
+**Goal:** Replace the current LOM mixer scrape in the M4L device with a per-fixture channel strip model — a fixed pool of 16 dial slots, preset-driven active/label configuration, emitting `{fixture_name}_{Label}` keys for active channels only.
 
-**Architecture:** A new `server/fixture/` package holds built-in profiles (hardcoded, not user-editable). `config.json` gains a `fixtures` field mapping instance names to `{profile, universe, start_channel}`. The E1.31 dispatcher resolves fixture instances via profile channel offsets. The existing `parameters` field is kept for backward compatibility (the fake emitter still uses it). M4L is rewritten as a per-fixture instrument: one device per track, reads its own dial values, emits `{fixture_name}_{semantic}` keys using the track name as prefix.
+**Architecture:** The M4L device is rewritten as a channel strip instrument: dial values arrive via Max inlets (direct connections from `live.dial` objects), a preset selector configures which channels are active and what their labels are, and the emitter builds the state map from active channels only. The server and `config.json` are structurally unchanged — the existing `parameters` map handles the new key names identically to the old ones. The fake emitter is updated to emit fixture-style labels so the full stack can be tested without Live.
 
-**Tech Stack:** Go 1.25 (server), TypeScript/ES6/esbuild (M4L device), MessagePack (UDP protocol)
-
----
-
-## Background: how the pieces fit
-
-### Current flow
-```
-M4L → {track1_volume: 0.8, track1_pan: 0.5} (UDP)
-Server: cfg.Parameters["track1_volume"] → [{universe:1, channel:1}]
-E1.31 dispatcher → writes DMX byte to universe 1 channel 1
-```
-
-### New flow (fixture model)
-```
-M4L → {stage_left_color_r: 0.8, stage_left_intensity: 0.9} (UDP)
-Server: cfg.Fixtures["stage_left"] → {profile:"Generic Par RGBW", universe:1, start_channel:1}
-fixture.BuiltinProfiles["Generic Par RGBW"].Channels["color_r"] → offset 1
-→ DMX channel = start_channel + offset - 1 = 1
-E1.31 dispatcher → writes 204 (0.8×255) to universe 1 channel 1
-```
-
-The server builds the expected state key as `{fixture_name}_{semantic}` and looks it up in the incoming state map. No ambiguous string parsing.
-
-### Backward compatibility
-The `parameters` field stays in `Config` and the dispatcher still handles it. The fake emitter keeps working as-is. New fixture instances are additive.
+**Tech Stack:** TypeScript (ES6, Max SpiderMonkey constraints), `@msgpack/msgpack`, Go, Jest (via device-scripts test suite), `pnpm --filter device-scripts test`
 
 ---
 
-## Task 1: Server — fixture profiles package
+## Context you need to read first
 
-**Files:**
-- Create: `server/fixture/profiles.go`
-- Create: `server/fixture/profiles_test.go`
+- `device/scripts/src/lib/emitter.ts` — current emitter (`setParam`, `resetSession`, `emit`)
+- `device/scripts/src/lib/emitter.test.ts` — existing tests (will be replaced)
+- `device/scripts/src/main.ts` — current LOM traversal (will be replaced)
+- `tools/fake-emitter/main.go` — `defaultParameters` slice at top (update naming)
+- `server/config.json` — `parameters` map (update key names to match new convention)
+- `docs/plans/2026-03-02-fixture-library-design.md` — full design rationale
 
-### Step 1: Write the failing test
+## Critical constraints (Max JS runtime)
 
-```go
-// server/fixture/profiles_test.go
-package fixture_test
-
-import (
-	"testing"
-	"github.com/footgunz/penumbra/fixture"
-)
-
-func TestBuiltinProfilesExist(t *testing.T) {
-	names := []string{
-		"Generic Par RGB",
-		"Generic Par RGBW",
-		"WLED RGB Zone",
-		"WLED RGBW Zone",
-		"Moving Head",
-		"Strobe",
-	}
-	for _, name := range names {
-		if _, ok := fixture.BuiltinProfiles[name]; !ok {
-			t.Errorf("missing profile %q", name)
-		}
-	}
-}
-
-func TestProfileChannelOffsets(t *testing.T) {
-	p := fixture.BuiltinProfiles["Generic Par RGBW"]
-	got := make(map[string]int)
-	for _, ch := range p.Channels {
-		got[ch.Semantic] = ch.Offset
-	}
-	want := map[string]int{
-		"intensity": 0,
-		"color_r":   1,
-		"color_g":   2,
-		"color_b":   3,
-		"color_w":   4,
-	}
-	for semantic, wantOffset := range want {
-		if gotOffset, ok := got[semantic]; !ok {
-			t.Errorf("Generic Par RGBW missing semantic %q", semantic)
-		} else if gotOffset != wantOffset {
-			t.Errorf("Generic Par RGBW %q: got offset %d, want %d", semantic, gotOffset, wantOffset)
-		}
-	}
-}
-
-func TestProfileChannelCount(t *testing.T) {
-	cases := []struct {
-		profile string
-		count   int
-	}{
-		{"Generic Par RGB", 4},
-		{"Generic Par RGBW", 5},
-		{"WLED RGB Zone", 3},
-		{"WLED RGBW Zone", 4},
-		{"Moving Head", 8},
-		{"Strobe", 2},
-	}
-	for _, c := range cases {
-		p := fixture.BuiltinProfiles[c.profile]
-		if len(p.Channels) != c.count {
-			t.Errorf("%q: got %d channels, want %d", c.profile, len(p.Channels), c.count)
-		}
-	}
-}
-
-func TestResolveChannels(t *testing.T) {
-	// Generic Par RGB at universe 2, start_channel 5
-	// color_r offset=1 → DMX channel 6 (1-indexed)
-	p := fixture.BuiltinProfiles["Generic Par RGB"]
-	startChannel := 5
-	for _, ch := range p.Channels {
-		if ch.Semantic == "color_r" {
-			got := startChannel + ch.Offset
-			if got != 6 {
-				t.Errorf("color_r at start_channel 5: got channel %d, want 6", got)
-			}
-		}
-	}
-}
-```
-
-### Step 2: Run to verify it fails
-
-```bash
-cd server && /usr/local/go/bin/go test ./fixture/... -v
-```
-
-Expected: `cannot find package "github.com/footgunz/penumbra/fixture"`
-
-### Step 3: Create the profiles package
-
-```go
-// server/fixture/profiles.go
-package fixture
-
-// Semantic constants for the fixed parameter superset emitted by M4L.
-// These are the only parameter names the fixture system understands.
-const (
-	SemanticIntensity   = "intensity"
-	SemanticColorR      = "color_r"
-	SemanticColorG      = "color_g"
-	SemanticColorB      = "color_b"
-	SemanticColorW      = "color_w"
-	SemanticPan         = "pan"
-	SemanticTilt        = "tilt"
-	SemanticGobo        = "gobo"
-	SemanticStrobeRate  = "strobe_rate"
-)
-
-// AllSemantics is the full set of semantic parameters M4L may emit.
-// The fixture type dropdown controls which subset is visible in the UI.
-var AllSemantics = []string{
-	SemanticIntensity,
-	SemanticColorR,
-	SemanticColorG,
-	SemanticColorB,
-	SemanticColorW,
-	SemanticPan,
-	SemanticTilt,
-	SemanticGobo,
-	SemanticStrobeRate,
-}
-
-// ChannelDef maps one semantic parameter to a DMX channel offset within a fixture.
-// Offset is 0-indexed from start_channel: DMX channel = start_channel + Offset (1-indexed).
-type ChannelDef struct {
-	Semantic string
-	Offset   int
-}
-
-// Profile defines the DMX channel layout for a fixture type.
-type Profile struct {
-	Name        string
-	Description string
-	Channels    []ChannelDef
-}
-
-// BuiltinProfiles is the server-side fixture library. Not user-editable.
-// New fixture types are added at release time.
-var BuiltinProfiles = map[string]Profile{
-	"Generic Par RGB": {
-		Name:        "Generic Par RGB",
-		Description: "4-channel RGB par: intensity, R, G, B",
-		Channels: []ChannelDef{
-			{Semantic: SemanticIntensity, Offset: 0},
-			{Semantic: SemanticColorR,   Offset: 1},
-			{Semantic: SemanticColorG,   Offset: 2},
-			{Semantic: SemanticColorB,   Offset: 3},
-		},
-	},
-	"Generic Par RGBW": {
-		Name:        "Generic Par RGBW",
-		Description: "5-channel RGBW par: intensity, R, G, B, W",
-		Channels: []ChannelDef{
-			{Semantic: SemanticIntensity, Offset: 0},
-			{Semantic: SemanticColorR,   Offset: 1},
-			{Semantic: SemanticColorG,   Offset: 2},
-			{Semantic: SemanticColorB,   Offset: 3},
-			{Semantic: SemanticColorW,   Offset: 4},
-		},
-	},
-	"WLED RGB Zone": {
-		Name:        "WLED RGB Zone",
-		Description: "3-channel RGB zone on a WLED strip: R, G, B (pixel offset × 3 = start_channel)",
-		Channels: []ChannelDef{
-			{Semantic: SemanticColorR, Offset: 0},
-			{Semantic: SemanticColorG, Offset: 1},
-			{Semantic: SemanticColorB, Offset: 2},
-		},
-	},
-	"WLED RGBW Zone": {
-		Name:        "WLED RGBW Zone",
-		Description: "4-channel RGBW zone on a WLED strip: R, G, B, W",
-		Channels: []ChannelDef{
-			{Semantic: SemanticColorR, Offset: 0},
-			{Semantic: SemanticColorG, Offset: 1},
-			{Semantic: SemanticColorB, Offset: 2},
-			{Semantic: SemanticColorW, Offset: 3},
-		},
-	},
-	"Moving Head": {
-		Name:        "Moving Head",
-		Description: "8-channel moving head: pan, tilt, intensity, R, G, B, gobo, strobe",
-		Channels: []ChannelDef{
-			{Semantic: SemanticPan,        Offset: 0},
-			{Semantic: SemanticTilt,       Offset: 1},
-			{Semantic: SemanticIntensity,  Offset: 2},
-			{Semantic: SemanticColorR,     Offset: 3},
-			{Semantic: SemanticColorG,     Offset: 4},
-			{Semantic: SemanticColorB,     Offset: 5},
-			{Semantic: SemanticGobo,       Offset: 6},
-			{Semantic: SemanticStrobeRate, Offset: 7},
-		},
-	},
-	"Strobe": {
-		Name:        "Strobe",
-		Description: "2-channel strobe: intensity, strobe rate",
-		Channels: []ChannelDef{
-			{Semantic: SemanticIntensity,  Offset: 0},
-			{Semantic: SemanticStrobeRate, Offset: 1},
-		},
-	},
-}
-```
-
-### Step 4: Run tests
-
-```bash
-cd server && /usr/local/go/bin/go test ./fixture/... -v
-```
-
-Expected: all tests PASS
-
-### Step 5: Commit
-
-```bash
-git add server/fixture/
-git commit -m "feat(server): add fixture profiles package with 6 built-in profiles"
-```
+- **No ES2017+ syntax** — no `async/await`, no `?.`, no `??`. Use `var` everywhere in `main.ts`. `const`/`let` are fine in `lib/` files (esbuild lowers them).
+- **No dynamic Max object creation** — only static `live.dial` objects, wired at patch design time.
+- **Max globals** — `Task`, `LiveAPI`, `outlet`, `post`, `inlet`, `inlets`, `outlets` are provided by the Max runtime at load time. Declare them with `declare var` / `declare function` in TypeScript — never import them. They are never available in tests.
+- **`lib/` must not use Max globals** — all runtime objects pass through function parameters (injection pattern). This keeps `lib/` unit-testable in Node.
+- Build: `pnpm --filter device-scripts build` — must produce no errors.
+- Test: `pnpm --filter device-scripts test` — runs Jest in Node (not Max).
 
 ---
 
-## Task 2: Server — add FixtureInstance to config
-
-**Files:**
-- Modify: `server/config/config.go`
-- Create: `server/config/config_test.go`
-
-### Step 1: Write the failing test
-
-```go
-// server/config/config_test.go
-package config_test
-
-import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"testing"
-
-	"github.com/footgunz/penumbra/config"
-)
-
-func TestLoadFixtures(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	raw := `{
-		"universes": {"1": {"device_ip": "192.168.1.1", "label": "test"}},
-		"fixtures": {
-			"stage_left": {"profile": "Generic Par RGB", "universe": 1, "start_channel": 1}
-		}
-	}`
-	os.WriteFile(path, []byte(raw), 0o644)
-
-	cfg, err := config.Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	fi, ok := cfg.Fixtures["stage_left"]
-	if !ok {
-		t.Fatal("expected fixture 'stage_left'")
-	}
-	if fi.Profile != "Generic Par RGB" {
-		t.Errorf("profile: got %q, want %q", fi.Profile, "Generic Par RGB")
-	}
-	if fi.Universe != 1 {
-		t.Errorf("universe: got %d, want 1", fi.Universe)
-	}
-	if fi.StartChannel != 1 {
-		t.Errorf("start_channel: got %d, want 1", fi.StartChannel)
-	}
-}
-
-func TestLoadBackwardCompat(t *testing.T) {
-	// Old config without fixtures field should still load cleanly.
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	raw := `{
-		"universes": {"1": {"device_ip": "192.168.1.1", "label": "test"}},
-		"parameters": {
-			"track1_dimmer": [{"universe": 1, "channel": 1}]
-		}
-	}`
-	os.WriteFile(path, []byte(raw), 0o644)
-
-	cfg, err := config.Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(cfg.Parameters) == 0 {
-		t.Error("expected parameters to be loaded")
-	}
-	if cfg.Fixtures == nil {
-		t.Error("expected Fixtures to be initialised (empty map, not nil)")
-	}
-}
-
-func TestSaveRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	cfg, _ := config.Load(path) // empty config
-	cfg.Fixtures["stage_left"] = config.FixtureInstance{
-		Profile:      "Generic Par RGB",
-		Universe:     2,
-		StartChannel: 5,
-	}
-	if err := cfg.Save(); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-
-	data, _ := os.ReadFile(path)
-	var raw map[string]json.RawMessage
-	json.Unmarshal(data, &raw)
-	if _, ok := raw["fixtures"]; !ok {
-		t.Error("saved JSON missing 'fixtures' key")
-	}
-}
-```
-
-### Step 2: Run to verify it fails
-
-```bash
-cd server && /usr/local/go/bin/go test ./config/... -v
-```
-
-Expected: FAIL — `cfg.Fixtures` undefined
-
-### Step 3: Add FixtureInstance to config.go
-
-Add the following to `server/config/config.go` after the existing types:
-
-```go
-// FixtureInstance is a patched fixture: a named instance of a profile
-// at a specific universe and start channel.
-// The fixture name (map key) is also the prefix used in M4L parameter names:
-// a fixture named "stage_left" expects state keys "stage_left_color_r", etc.
-type FixtureInstance struct {
-	Profile      string `json:"profile"`       // must match a key in fixture.BuiltinProfiles
-	Universe     int    `json:"universe"`      // universe number
-	StartChannel int    `json:"start_channel"` // 1-indexed DMX start channel
-}
-```
-
-And update the `Config` struct to add `Fixtures`:
-
-```go
-type Config struct {
-	Universes  map[int]UniverseConfig       `json:"universes"`
-	Fixtures   map[string]FixtureInstance   `json:"fixtures"`
-	Parameters map[string]ParameterConfig   `json:"parameters"`
-	path       string
-}
-```
-
-And update `Load` to initialise `Fixtures`:
-
-```go
-cfg := &Config{
-	Universes:  make(map[int]UniverseConfig),
-	Fixtures:   make(map[string]FixtureInstance),
-	Parameters: make(map[string]ParameterConfig),
-	path:       path,
-}
-```
-
-### Step 4: Run tests
-
-```bash
-cd server && /usr/local/go/bin/go test ./config/... -v
-```
-
-Expected: all tests PASS
-
-### Step 5: Commit
-
-```bash
-git add server/config/config.go server/config/config_test.go
-git commit -m "feat(server): add FixtureInstance to Config; keep Parameters for backward compat"
-```
-
----
-
-## Task 3: Server — E1.31 dispatcher resolves fixture instances
-
-**Files:**
-- Modify: `server/e131/e131.go`
-- Create: `server/e131/e131_test.go`
-
-### Step 1: Write the failing test
-
-```go
-// server/e131/e131_test.go
-package e131_test
-
-import (
-	"testing"
-
-	"github.com/footgunz/penumbra/config"
-	"github.com/footgunz/penumbra/e131"
-)
-
-func TestDispatchFixture_WritesCorrectChannel(t *testing.T) {
-	cfg := &config.Config{
-		Universes: map[int]config.UniverseConfig{
-			1: {DeviceIP: "239.255.0.1", Label: "test"},
-		},
-		Fixtures: map[string]config.FixtureInstance{
-			"stage_left": {
-				Profile:      "Generic Par RGB",
-				Universe:     1,
-				StartChannel: 1,
-			},
-		},
-		Parameters: map[string]config.ParameterConfig{},
-	}
-
-	// Capture DMX output for inspection.
-	var captured []capturedPacket
-	d := e131.NewTestDispatcher(func(universe int, dmx []byte) {
-		captured = append(captured, capturedPacket{universe, append([]byte{}, dmx...)})
-	})
-
-	state := map[string]float64{
-		"stage_left_color_r": 1.0, // → DMX 255 at channel 2 (offset 1, start 1)
-		"stage_left_color_g": 0.5, // → DMX 128 at channel 3
-		"stage_left_intensity": 0.0, // → DMX 0 at channel 1
-	}
-
-	d.Dispatch(state, cfg)
-
-	if len(captured) != 1 {
-		t.Fatalf("expected 1 universe packet, got %d", len(captured))
-	}
-	pkt := captured[0]
-	if pkt.universe != 1 {
-		t.Errorf("universe: got %d, want 1", pkt.universe)
-	}
-	// channel 1 = index 0: intensity = 0.0 → 0
-	if pkt.dmx[0] != 0 {
-		t.Errorf("ch1 (intensity): got %d, want 0", pkt.dmx[0])
-	}
-	// channel 2 = index 1: color_r = 1.0 → 255
-	if pkt.dmx[1] != 255 {
-		t.Errorf("ch2 (color_r): got %d, want 255", pkt.dmx[1])
-	}
-	// channel 3 = index 2: color_g = 0.5 → 128 (rounded)
-	if pkt.dmx[2] != 128 {
-		t.Errorf("ch3 (color_g): got %d, want 128", pkt.dmx[2])
-	}
-}
-
-func TestDispatchFixture_IgnoresUnknownProfile(t *testing.T) {
-	cfg := &config.Config{
-		Universes:  map[int]config.UniverseConfig{1: {}},
-		Fixtures:   map[string]config.FixtureInstance{
-			"mystery": {Profile: "Nonexistent Profile", Universe: 1, StartChannel: 1},
-		},
-		Parameters: map[string]config.ParameterConfig{},
-	}
-	d := e131.NewTestDispatcher(func(_ int, _ []byte) {
-		// should not be called — unknown profile means no channels, no output
-	})
-	// Should not panic
-	d.Dispatch(map[string]float64{"mystery_intensity": 1.0}, cfg)
-}
-
-func TestDispatchLegacyParameters(t *testing.T) {
-	// Old parameters field still works.
-	cfg := &config.Config{
-		Universes: map[int]config.UniverseConfig{1: {}},
-		Fixtures:  map[string]config.FixtureInstance{},
-		Parameters: map[string]config.ParameterConfig{
-			"track1_dimmer": {{Universe: 1, Channel: 1}},
-		},
-	}
-	var captured []capturedPacket
-	d := e131.NewTestDispatcher(func(universe int, dmx []byte) {
-		captured = append(captured, capturedPacket{universe, append([]byte{}, dmx...)})
-	})
-	d.Dispatch(map[string]float64{"track1_dimmer": 1.0}, cfg)
-	if len(captured) != 1 {
-		t.Fatalf("expected 1 packet, got %d", len(captured))
-	}
-	if captured[0].dmx[0] != 255 {
-		t.Errorf("ch1: got %d, want 255", captured[0].dmx[0])
-	}
-}
-
-type capturedPacket struct {
-	universe int
-	dmx      []byte
-}
-```
-
-### Step 2: Run to verify it fails
-
-```bash
-cd server && /usr/local/go/bin/go test ./e131/... -v
-```
-
-Expected: FAIL — `NewTestDispatcher` undefined
-
-### Step 3: Update e131.go
-
-The `Dispatch` method needs to handle both fixture instances and legacy parameters. Also expose a `NewTestDispatcher` constructor that accepts an inject-able send function for testing.
-
-Replace the `Dispatcher` struct and add the new dispatch logic in `server/e131/e131.go`:
-
-```go
-// SendFn is the function called to transmit a built E1.31 packet.
-// Replaced in tests to capture output without UDP sockets.
-type SendFn func(addr string, pkt []byte)
-
-// Dispatcher sends E1.31 packets.
-type Dispatcher struct {
-	sequences map[int]uint8
-	cid       [16]byte
-	sendFn    SendFn
-}
-
-// NewDispatcher creates a Dispatcher that sends real UDP packets.
-func NewDispatcher(cfg *config.Config) *Dispatcher {
-	return &Dispatcher{
-		sequences: make(map[int]uint8),
-		cid:       generateCID(),
-		sendFn:    sendUDP,
-	}
-}
-
-// NewTestDispatcher creates a Dispatcher that calls onPacket instead of sending UDP.
-// onPacket receives the universe number and the 512-byte DMX slot array.
-func NewTestDispatcher(onPacket func(universe int, dmx []byte)) *Dispatcher {
-	return &Dispatcher{
-		sequences: make(map[int]uint8),
-		cid:       generateCID(),
-		sendFn: func(addr string, pkt []byte) {
-			// Extract universe and DMX data from the built packet.
-			// Universe is at bytes 113-114 (big-endian uint16).
-			// DMX starts at byte 125 (after start code at 124).
-			universe := int(pkt[113])<<8 | int(pkt[114])
-			dmx := pkt[125 : 125+UniverseSize]
-			onPacket(universe, dmx)
-		},
-	}
-}
-```
-
-Replace the `Dispatch` method:
-
-```go
-// Dispatch resolves fixture instances and legacy parameters from state,
-// builds per-universe DMX arrays, and sends E1.31 packets.
-func (d *Dispatcher) Dispatch(state map[string]float64, cfg *config.Config) {
-	universes := make(map[int][]byte)
-
-	ensure := func(u int) {
-		if _, ok := universes[u]; !ok {
-			universes[u] = make([]byte, UniverseSize)
-		}
-	}
-
-	write := func(universe, channel int, value float64) {
-		ensure(universe)
-		ch := channel - 1 // 1-indexed → 0-indexed
-		if ch >= 0 && ch < UniverseSize {
-			universes[universe][ch] = floatToDMX(value)
-		}
-	}
-
-	// Fixture instances: look up each fixture's profile and resolve channels.
-	for fixtureName, instance := range cfg.Fixtures {
-		profile, ok := fixture.BuiltinProfiles[instance.Profile]
-		if !ok {
-			continue // unknown profile — silently skip
-		}
-		for _, ch := range profile.Channels {
-			key := fixtureName + "_" + ch.Semantic
-			value, ok := state[key]
-			if !ok {
-				continue
-			}
-			dmxChannel := instance.StartChannel + ch.Offset // 1-indexed
-			write(instance.Universe, dmxChannel, value)
-		}
-	}
-
-	// Legacy parameters: direct parameter → channel mapping.
-	for paramName, value := range state {
-		targets, ok := cfg.Parameters[paramName]
-		if !ok {
-			continue
-		}
-		for _, t := range targets {
-			write(t.Universe, t.Channel, value)
-		}
-	}
-
-	for universe, dmx := range universes {
-		seq := d.nextSeq(universe)
-		pkt := buildPacket(universe, dmx, seq, d.cid, "penumbra")
-		addr := universeMulticastAddr(universe)
-		d.sendFn(addr, pkt)
-	}
-}
-```
-
-Add the import for the fixture package at the top:
-```go
-import (
-	"crypto/rand"
-	"encoding/binary"
-	"fmt"
-	"math"
-	"net"
-
-	"github.com/footgunz/penumbra/config"
-	"github.com/footgunz/penumbra/fixture"
-)
-```
-
-Replace the old `send` method with the standalone `sendUDP` function:
-```go
-func sendUDP(addr string, pkt []byte) {
-	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", addr, Port))
-	if err != nil {
-		return
-	}
-	conn, err := net.DialUDP("udp", nil, udpAddr)
-	if err != nil {
-		return
-	}
-	defer conn.Close()
-	conn.Write(pkt)
-}
-```
-
-### Step 4: Run tests
-
-```bash
-cd server && /usr/local/go/bin/go test ./e131/... ./fixture/... ./config/... -v
-```
-
-Expected: all tests PASS
-
-### Step 5: Verify the server still builds
-
-```bash
-cd server && /usr/local/go/bin/go build .
-```
-
-Expected: no errors
-
-### Step 6: Commit
-
-```bash
-git add server/e131/ server/fixture/
-git commit -m "feat(server): E1.31 dispatcher resolves fixture instances via profile channel offsets"
-```
-
----
-
-## Task 4: Server — GET /api/fixtures endpoint
-
-Exposes the built-in profile list to the UI so it can populate the fixture editor.
-
-**Files:**
-- Modify: `server/api/routes.go`
-
-### Step 1: Add the route
-
-In `NewRouter`, add a new handler before the file server catch-all:
-
-```go
-// GET /api/fixtures — return built-in fixture profiles
-mux.HandleFunc("/api/fixtures", func(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    type profileSummary struct {
-        Name        string   `json:"name"`
-        Description string   `json:"description"`
-        Semantics   []string `json:"semantics"`
-    }
-    profiles := make([]profileSummary, 0, len(fixture.BuiltinProfiles))
-    for _, p := range fixture.BuiltinProfiles {
-        semantics := make([]string, len(p.Channels))
-        for i, ch := range p.Channels {
-            semantics[i] = ch.Semantic
-        }
-        profiles = append(profiles, profileSummary{
-            Name:        p.Name,
-            Description: p.Description,
-            Semantics:   semantics,
-        })
-    }
-    data, _ := json.Marshal(profiles)
-    w.Header().Set("Content-Type", "application/json")
-    w.Write(data)
-})
-```
-
-Add `fixture` to the import block:
-```go
-import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "io/fs"
-    "log"
-    "net/http"
-
-    "github.com/footgunz/penumbra/config"
-    "github.com/footgunz/penumbra/fixture"
-    "github.com/footgunz/penumbra/ui"
-    "github.com/footgunz/penumbra/ws"
-)
-```
-
-Also update the `POST /api/config` handler to accept the `fixtures` field:
-
-```go
-var update struct {
-    Universes  map[int]config.UniverseConfig       `json:"universes"`
-    Fixtures   map[string]config.FixtureInstance   `json:"fixtures"`
-    Parameters map[string]config.ParameterConfig   `json:"parameters"`
-}
-// ...after unmarshal:
-if update.Fixtures != nil {
-    cfg.Fixtures = update.Fixtures
-}
-```
-
-### Step 2: Build and verify
-
-```bash
-cd server && /usr/local/go/bin/go build .
-```
-
-Expected: no errors
-
-### Step 3: Smoke test the endpoint
-
-```bash
-# Start server in background
-cd server && /usr/local/go/bin/go run . &
-sleep 1
-curl -s http://localhost:3000/api/fixtures | head -c 200
-kill %1
-```
-
-Expected: JSON array of profile objects with name, description, semantics.
-
-### Step 4: Commit
-
-```bash
-git add server/api/routes.go
-git commit -m "feat(server): add GET /api/fixtures endpoint; POST /api/config accepts fixtures field"
-```
-
----
-
-## Task 5: Update config.json with fixture instances
-
-Update the committed `server/config.json` to demonstrate the new schema. Keep the existing `parameters` entries for backward compatibility with the fake emitter.
-
-**Files:**
-- Modify: `server/config.json`
-
-### Step 1: Update config.json
-
-```json
-{
-  "universes": {
-    "1": {
-      "device_ip": "192.168.1.101",
-      "label": "stage left"
-    },
-    "2": {
-      "device_ip": "192.168.1.102",
-      "label": "stage right"
-    }
-  },
-  "fixtures": {
-    "track1": {
-      "profile": "Generic Par RGBW",
-      "universe": 1,
-      "start_channel": 1
-    },
-    "track2": {
-      "profile": "Generic Par RGBW",
-      "universe": 1,
-      "start_channel": 6
-    }
-  },
-  "parameters": {
-    "track1_blue": [
-      { "universe": 1, "channel": 4 },
-      { "universe": 2, "channel": 120 }
-    ],
-    "track1_dimmer": [{ "universe": 1, "channel": 1 }],
-    "track1_green":  [{ "universe": 1, "channel": 3 }],
-    "track1_red":    [{ "universe": 1, "channel": 2 }]
-  }
-}
-```
-
-### Step 2: Verify server loads it
-
-```bash
-cd server && /usr/local/go/bin/go run . &
-sleep 1
-curl -s http://localhost:3000/api/config | python3 -m json.tool | grep -A5 '"fixtures"'
-kill %1
-```
-
-Expected: fixtures block present with track1 and track2 instances.
-
-### Step 3: Commit
-
-```bash
-git add server/config.json
-git commit -m "chore(server): add fixture instances to config.json example"
-```
-
----
-
-## Task 6: Fake emitter — emit fixture-style parameters
-
-Update the fake emitter to emit semantic parameter names (`track1_color_r`, `track1_intensity`) alongside the legacy names, so it exercises the new fixture dispatch path.
-
-**Files:**
-- Modify: `tools/fake-emitter/main.go`
-
-### Step 1: Add fixture parameters to defaultParameters
-
-In `main.go`, replace `defaultParameters` with a fixture-aware set:
-
-```go
-// defaultParameters covers both legacy names (for backward compat with
-// direct parameter config) and fixture-style semantic names (for the new
-// fixture instance model). The fixture names here match the instances in
-// server/config.json.
-var defaultParameters = []string{
-	// Fixture-style: semantic params prefixed with fixture name
-	"track1_intensity", "track1_color_r", "track1_color_g", "track1_color_b", "track1_color_w",
-	"track2_intensity", "track2_color_r", "track2_color_g", "track2_color_b", "track2_color_w",
-	// Legacy flat params kept for backward compat
-	"track1_dimmer", "track1_red", "track1_green", "track1_blue",
-	"master_dimmer",
-}
-```
-
-### Step 2: Build and verify
-
-```bash
-cd tools/fake-emitter && /usr/local/go/bin/go build .
-```
-
-Expected: no errors
-
-### Step 3: Commit
-
-```bash
-git add tools/fake-emitter/main.go
-git commit -m "feat(fake-emitter): emit fixture-style semantic parameters alongside legacy names"
-```
-
----
-
-## Task 7: M4L device — per-fixture emitter TypeScript
-
-This rewrites the M4L device from a "LOM crawler for all tracks" to a "per-fixture instrument on one track." The Max patch UI changes (dials, dropdown, wiring) require manual work in the Max editor and are described in the notes — this task covers the TypeScript layer.
+### Task 1: Rewrite `lib/emitter.ts` — channel strip API (TDD)
 
 **Files:**
 - Modify: `device/scripts/src/lib/emitter.ts`
-- Modify: `device/scripts/src/main.ts`
-- Modify: `device/scripts/src/lib/emitter.test.ts` (if exists, otherwise create)
+- Modify: `device/scripts/src/lib/emitter.test.ts`
 
-### Step 1: Update emitter.ts
+The existing `setParam(name, value)` API is replaced by a channel-based API. The emitter owns a named channel array; `emit()` builds the state map from active channels only, keyed as `{fixtureName}_{label}`.
 
-The emitter now takes a fixture name prefix and emits `{fixtureName}_{semantic}` keys:
+**Step 1: Write the failing tests**
+
+Replace `device/scripts/src/lib/emitter.test.ts` entirely:
 
 ```typescript
-// lib/emitter.ts
+import { decode } from '@msgpack/msgpack'
+import { createEmitter } from './emitter'
+
+function decodePacket(bytes: number[]): { session_id: string; ts: number; state: Record<string, number> } {
+  return decode(new Uint8Array(bytes)) as any
+}
+
+describe('createEmitter — channel strip', () => {
+  it('emits a non-empty byte array on emit()', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+    e.emit()
+    expect(sent).toHaveLength(1)
+    expect(sent[0].length).toBeGreaterThan(0)
+  })
+
+  it('active channels appear in emitted state with fixture prefix', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('stage_left')
+    e.setChannels([
+      { label: 'Dimmer', active: true },
+      { label: 'Red',    active: true },
+      { label: 'Blue',   active: false },
+    ])
+    e.setChannelValue(0, 0.75)
+    e.setChannelValue(1, 1.0)
+    e.setChannelValue(2, 0.5)  // inactive — must not appear
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['stage_left_Dimmer']).toBeCloseTo(0.75)
+    expect(pkt.state['stage_left_Red']).toBeCloseTo(1.0)
+    expect(pkt.state['stage_left_Blue']).toBeUndefined()
+  })
+
+  it('inactive channels are excluded from emitted state', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('fixture')
+    e.setChannels([{ label: 'Pan', active: false }])
+    e.setChannelValue(0, 0.9)
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(Object.keys(pkt.state)).toHaveLength(0)
+  })
+
+  it('setChannelValue out of range is a no-op', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Dimmer', active: true }])
+    e.setChannelValue(99, 0.5)  // out of range — no crash, no effect
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['f_Dimmer']).toBeCloseTo(0)
+  })
+
+  it('setChannels preserves existing values by index', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Red', active: true }])
+    e.setChannelValue(0, 0.6)
+
+    // Apply new preset — index 0 still present, value preserved
+    e.setChannels([{ label: 'Dimmer', active: true }])
+    e.emit()
+
+    const pkt = decodePacket(sent[0])
+    expect(pkt.state['f_Dimmer']).toBeCloseTo(0.6)
+  })
+
+  it('resetSession clears channels and changes session id', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+
+    e.setFixtureName('f')
+    e.setChannels([{ label: 'Red', active: true }])
+    e.setChannelValue(0, 0.9)
+    e.emit()
+
+    e.resetSession()
+    e.emit()
+
+    expect(sent).toHaveLength(2)
+    const pkt1 = decodePacket(sent[0])
+    const pkt2 = decodePacket(sent[1])
+    expect(pkt1.session_id).not.toBe(pkt2.session_id)
+    expect(Object.keys(pkt2.state)).toHaveLength(0)
+  })
+
+  it('emitted bytes are all valid uint8 values', () => {
+    const sent: number[][] = []
+    const e = createEmitter((b) => sent.push(b))
+    e.emit()
+    expect(sent[0].every((b) => Number.isInteger(b) && b >= 0 && b <= 255)).toBe(true)
+  })
+})
+```
+
+**Step 2: Run the tests to verify they fail**
+
+```bash
+pnpm --filter device-scripts test
+```
+
+Expected: multiple FAIL — `setFixtureName is not a function`, `setChannels is not a function`, `setChannelValue is not a function`.
+
+**Step 3: Rewrite `device/scripts/src/lib/emitter.ts`**
+
+```typescript
+// lib/emitter.ts — channel strip state serialiser for M4L UDP emission.
+//
+// Constraints:
+//   - No async/await, no optional chaining (?.), no nullish coalescing (??)
+//   - No direct Max globals — all Max runtime objects are injected as parameters
+//   - Must compile to ES6 IIFE via esbuild (bundled; msgpack is bundled in)
+
 import { encode } from '@msgpack/msgpack'
 
 type SendFn = (bytes: number[]) => void
 
+interface Channel {
+  label: string
+  active: boolean
+  value: number
+}
+
 interface State {
   session_id: string
-  fixture_name: string
-  params: Record<string, number>
+  fixtureName: string
+  channels: Channel[]
 }
 
 function generateSessionId(): string {
-  var s = ''
-  for (var i = 0; i < 32; i++) {
-    var r = Math.floor(Math.random() * 16)
+  // UUID v4 via Math.random — no crypto in Max's SpiderMonkey
+  let s = ''
+  for (let i = 0; i < 32; i++) {
+    const r = Math.floor(Math.random() * 16)
     if (i === 8 || i === 12 || i === 16 || i === 20) s += '-'
     if (i === 12) {
       s += '4'
@@ -961,41 +202,58 @@ function generateSessionId(): string {
 }
 
 export function createEmitter(send: SendFn) {
-  var state: State = {
+  const state: State = {
     session_id: generateSessionId(),
-    fixture_name: 'fixture',
-    params: {},
+    fixtureName: 'fixture',
+    channels: [],
   }
 
   return {
+    // Set the fixture name prefix (derived from the Live track name).
     setFixtureName: function(name: string): void {
-      state.fixture_name = name
+      state.fixtureName = name
     },
 
-    setParam: function(semantic: string, value: number): void {
-      state.params[semantic] = value
+    // Replace the channel configuration. Active/label per slot.
+    // Existing values are preserved by index so a preset change doesn't reset dials to 0.
+    setChannels: function(channels: Array<{ label: string; active: boolean }>): void {
+      const prev = state.channels
+      state.channels = channels.map(function(ch, i) {
+        const prevValue = (i < prev.length) ? prev[i].value : 0
+        return { label: ch.label, active: ch.active, value: prevValue }
+      })
     },
 
+    // Update the value for one channel slot (0-indexed). Out-of-range is a no-op.
+    setChannelValue: function(index: number, value: number): void {
+      if (index >= 0 && index < state.channels.length) {
+        state.channels[index].value = value
+      }
+    },
+
+    // Reset session ID and clear channels (call when track layout changes).
     resetSession: function(): void {
       state.session_id = generateSessionId()
-      state.params = {}
+      state.channels = []
     },
 
+    // Emit current state — only active channels, keyed as {fixtureName}_{label}.
     emit: function(): void {
-      // Build prefixed state: { stage_left_color_r: 0.8, ... }
-      var prefixed: Record<string, number> = {}
-      var prefix = state.fixture_name + '_'
-      for (var k in state.params) {
-        prefixed[prefix + k] = state.params[k]
+      const params: Record<string, number> = {}
+      for (let i = 0; i < state.channels.length; i++) {
+        const ch = state.channels[i]
+        if (ch.active) {
+          params[state.fixtureName + '_' + ch.label] = ch.value
+        }
       }
-      var pkt = {
+      const pkt = {
         session_id: state.session_id,
         ts: Date.now(),
-        state: prefixed,
+        state: params,
       }
-      var encoded = encode(pkt)
-      var bytes: number[] = []
-      for (var i = 0; i < encoded.length; i++) {
+      const encoded = encode(pkt)
+      const bytes: number[] = []
+      for (let i = 0; i < encoded.length; i++) {
         bytes[i] = encoded[i]
       }
       send(bytes)
@@ -1004,85 +262,54 @@ export function createEmitter(send: SendFn) {
 }
 ```
 
-### Step 2: Update emitter.test.ts
+**Step 4: Run the tests to verify they pass**
 
-```typescript
-// lib/emitter.test.ts
-import { createEmitter } from './emitter'
-import { decode } from '@msgpack/msgpack'
-
-describe('createEmitter', () => {
-  it('calls send with a non-empty byte array on emit', () => {
-    const sent: number[][] = []
-    const e = createEmitter((b) => sent.push(b))
-    e.emit()
-    expect(sent.length).toBe(1)
-    expect(sent[0].length).toBeGreaterThan(0)
-  })
-
-  it('prefixes params with fixture name', () => {
-    const sent: number[][] = []
-    const e = createEmitter((b) => sent.push(b))
-    e.setFixtureName('stage_left')
-    e.setParam('color_r', 0.8)
-    e.emit()
-
-    const pkt = decode(new Uint8Array(sent[0])) as any
-    expect(pkt.state['stage_left_color_r']).toBeCloseTo(0.8)
-    expect(pkt.state['color_r']).toBeUndefined()
-  })
-
-  it('uses default fixture name if setFixtureName not called', () => {
-    const sent: number[][] = []
-    const e = createEmitter((b) => sent.push(b))
-    e.setParam('intensity', 1.0)
-    e.emit()
-
-    const pkt = decode(new Uint8Array(sent[0])) as any
-    // default name is 'fixture'
-    expect(pkt.state['fixture_intensity']).toBe(1.0)
-  })
-
-  it('includes setParam values in emitted packet', () => {
-    const sent: number[][] = []
-    const e = createEmitter((b) => sent.push(b))
-    e.setFixtureName('test')
-    e.setParam('color_g', 0.5)
-    e.setParam('intensity', 1.0)
-    e.emit()
-
-    const pkt = decode(new Uint8Array(sent[0])) as any
-    expect(pkt.state['test_color_g']).toBeCloseTo(0.5)
-    expect(pkt.state['test_intensity']).toBe(1.0)
-  })
-
-  it('resetSession changes the session id', () => {
-    const sent: number[][] = []
-    const e = createEmitter((b) => sent.push(b))
-    e.emit()
-    const id1 = (decode(new Uint8Array(sent[0])) as any).session_id
-    e.resetSession()
-    e.emit()
-    const id2 = (decode(new Uint8Array(sent[1])) as any).session_id
-    expect(id1).not.toBe(id2)
-  })
-})
+```bash
+pnpm --filter device-scripts test
 ```
 
-### Step 3: Update main.ts
+Expected: all tests PASS, 0 failures.
 
-The new main.ts reads the track name from the LOM, sets it as the fixture name, and receives parameter values from the Max patch via function calls (wired in `Penumbra.maxpat`). The LOM crawler is removed.
+**Step 5: Commit**
+
+```bash
+git add device/scripts/src/lib/emitter.ts device/scripts/src/lib/emitter.test.ts
+git commit -m "feat(m4l): channel strip API — setFixtureName, setChannels, setChannelValue"
+```
+
+---
+
+### Task 2: Rewrite `main.ts` — channel strip orchestrator
+
+**Files:**
+- Modify: `device/scripts/src/main.ts`
+
+`main.ts` is not unit-tested (depends on Max globals). Verification is: `pnpm --filter device-scripts build` succeeds with no TypeScript errors.
+
+The new `main.ts`:
+- Defines `PRESETS` — 4 baked-in fixture configurations, each specifying active/label per channel slot (padded to 16 slots)
+- Handles 17 inlets: inlet 0 = preset index (integer from `live.menu`), inlets 1–16 = dial values (float 0.0–1.0 from `live.dial`)
+- `lomTask` reads the track name via LiveAPI and calls `setFixtureName` — much lighter than the old full-LOM traversal
+- `emitTask` unchanged — calls `emitter.emit()`
+
+**Step 1: Replace `device/scripts/src/main.ts`**
 
 ```typescript
-// main.ts — per-fixture M4L emitter.
+// main.ts — M4L channel strip emitter.
 //
-// This device lives on ONE track and emits that track's lighting parameters.
-// The track name becomes the fixture name prefix (e.g., "stage_left").
-// Parameter values are set by live.dial objects in the Max patch calling
-// setColorR(), setColorG(), etc.
+// Architecture:
+//   - 16 live.dial objects in the patch (always present, visibility managed by thispatcher)
+//   - Inlet 0: preset index from live.menu (int)
+//   - Inlets 1–16: dial values (float 0.0–1.0) for channel slots 1–16
+//   - lomTask (40ms): reads track name → emitter.setFixtureName()
+//   - emitTask (40ms, +20ms offset): calls emitter.emit()
 //
-// The Max patch must wire each live.dial outlet to the corresponding
-// js function call: [js penumbra] receives messages like "setColorR 0.8".
+// Split-tick pattern preserved: LOM read and emit run on separate 40ms tasks
+// offset by 20ms so each tick does exactly one thing.
+//
+// Constraints: no async/await, no ?., no ??. Use var in all function bodies.
+
+// ─── Max globals ─────────────────────────────────────────────────────────────
 
 declare var Task: new (fn: () => void) => {
   interval: number
@@ -1090,16 +317,91 @@ declare var Task: new (fn: () => void) => {
   start(): void
 }
 declare var LiveAPI: new (callback: ((args: string[]) => void) | null, path: string) => {
-  path: string
-  id: string
   get(prop: string): unknown[]
-  getcount(prop: string): number
-  goto(path: string): void
 }
+declare var inlets: number
+declare var outlets: number
+declare var inlet: number
 declare function outlet(n: number, ...args: unknown[]): void
 declare function post(...args: unknown[]): void
 
 import { createEmitter } from './lib/emitter'
+
+// ─── Presets ──────────────────────────────────────────────────────────────────
+//
+// Each preset defines which of the 16 channel slots are active and what label
+// they carry. Slots beyond the preset's channel count are marked inactive.
+// Labels are from the well-known set: Dimmer, Red, Green, Blue, White, Pan,
+// Tilt, Strobe, Gobo, Zoom, Focus, Color, Speed, Mode.
+//
+// Adding a new fixture type = adding an entry here + a new release.
+
+interface PresetChannel {
+  label: string
+  active: boolean
+}
+
+interface Preset {
+  name: string
+  channels: PresetChannel[]  // always 16 entries
+}
+
+function padChannels(active: Array<{ label: string }>): PresetChannel[] {
+  var result: PresetChannel[] = []
+  for (var i = 0; i < 16; i++) {
+    if (i < active.length) {
+      result.push({ label: active[i].label, active: true })
+    } else {
+      result.push({ label: 'ch' + (i + 1), active: false })
+    }
+  }
+  return result
+}
+
+var PRESETS: Preset[] = [
+  {
+    name: 'Single Dimmer',
+    channels: padChannels([
+      { label: 'Dimmer' },
+    ]),
+  },
+  {
+    name: '4ch RGBW Par',
+    channels: padChannels([
+      { label: 'Red' },
+      { label: 'Green' },
+      { label: 'Blue' },
+      { label: 'White' },
+    ]),
+  },
+  {
+    name: '6ch PAR',
+    channels: padChannels([
+      { label: 'Dimmer' },
+      { label: 'Red' },
+      { label: 'Green' },
+      { label: 'Blue' },
+      { label: 'Strobe' },
+      { label: 'Mode' },
+    ]),
+  },
+  {
+    name: 'Moving Head Basic',
+    channels: padChannels([
+      { label: 'Pan' },
+      { label: 'Tilt' },
+      { label: 'Dimmer' },
+      { label: 'Color' },
+      { label: 'Gobo' },
+      { label: 'Speed' },
+    ]),
+  },
+]
+
+// ─── Setup ───────────────────────────────────────────────────────────────────
+
+inlets = 17   // 0 = preset selector, 1–16 = dial values
+outlets = 1   // outlet 0 → [udpsend]
 
 function udpSend(bytes: number[]): void {
   outlet(0, bytes)
@@ -1107,124 +409,228 @@ function udpSend(bytes: number[]): void {
 
 var emitter = createEmitter(udpSend)
 
-// ─── Track name → fixture name ────────────────────────────────────────────────
+// Apply the first preset on load.
+applyPreset(0)
 
-function getFixtureName(): string {
-  try {
-    var track = new LiveAPI(null, 'this_device canonical_parent')
-    var rawName = track.get('name')[0] as string
-    return rawName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
-  } catch (e) {
-    return 'fixture'
+// ─── Preset application ───────────────────────────────────────────────────────
+
+function applyPreset(idx: number): void {
+  if (idx < 0 || idx >= PRESETS.length) {
+    post('Penumbra: preset index out of range:', idx, '\n')
+    return
+  }
+  var preset = PRESETS[idx]
+  emitter.setChannels(preset.channels)
+  post('Penumbra: preset applied —', preset.name, '\n')
+
+  // TODO (Max patch work): send thispatcher messages to show/hide live.dial objects.
+  // Example for slot 0 (requires a named [send] in the patch wired to dial1's [hidden] inlet):
+  //   messnamed('dial1_visibility', preset.channels[0].active ? 0 : 1)
+  // All 16 dials remain visible in the PoC patch — this is deferred.
+}
+
+// ─── Inlet handlers ──────────────────────────────────────────────────────────
+//
+// inlet 0  — preset index from live.menu (integer, 0-indexed)
+// inlets 1–16 — float values (0.0–1.0) from live.dial objects
+
+function msg_int(v: number): void {
+  if (inlet === 0) {
+    applyPreset(v)
+  } else {
+    emitter.setChannelValue(inlet - 1, v / 127)  // MIDI range → 0.0–1.0
+  }
+}
+
+function msg_float(v: number): void {
+  if (inlet > 0) {
+    emitter.setChannelValue(inlet - 1, v)  // live.dial already outputs 0.0–1.0
   }
 }
 
 // ─── Track-change observer ────────────────────────────────────────────────────
+// Resets session ID when tracks are added or deleted.
 
 var liveSet = new LiveAPI(function(args) {
   if (args[0] === 'tracks') {
     emitter.resetSession()
-    emitter.setFixtureName(getFixtureName())
     post('Penumbra: track change — session reset\n')
   }
 }, 'live_set')
 
-// ─── Parameter setters — called by Max patch dials ───────────────────────────
-// Each function is invoked by a [js] message in the Max patch:
-//   e.g., a live.dial for color_r sends "setColorR <value>" to the js object.
+// ─── LOM read (track name only) ──────────────────────────────────────────────
+//
+// Reads this device's parent track name and sets it as the fixture prefix.
+// Called every lomTask tick (40ms) to pick up renames.
+// Much lighter than the old full-LOM traversal — no mixer scraping.
 
-function setIntensity(v: number):  void { emitter.setParam('intensity',   v) }
-function setColorR(v: number):     void { emitter.setParam('color_r',     v) }
-function setColorG(v: number):     void { emitter.setParam('color_g',     v) }
-function setColorB(v: number):     void { emitter.setParam('color_b',     v) }
-function setColorW(v: number):     void { emitter.setParam('color_w',     v) }
-function setPan(v: number):        void { emitter.setParam('pan',         v) }
-function setTilt(v: number):       void { emitter.setParam('tilt',        v) }
-function setGobo(v: number):       void { emitter.setParam('gobo',        v) }
-function setStrobeRate(v: number): void { emitter.setParam('strobe_rate', v) }
+function readTrackName(): void {
+  try {
+    var device = new LiveAPI(null, 'this_device')
+    var canonicalParent = device.get('canonical_parent')
+    // canonical_parent returns ['id', <id_number>] — navigate by id
+    var parentId = canonicalParent[1] as string
+    var track = new LiveAPI(null, 'id ' + parentId)
+    var rawName = track.get('name')[0] as string
+    var safeName = rawName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+    emitter.setFixtureName(safeName)
+  } catch (e) {
+    post('Penumbra: error reading track name:', e, '\n')
+  }
+}
 
-// ─── Emit task ────────────────────────────────────────────────────────────────
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+// Split-tick: lomTask reads track name, emitTask sends UDP, offset by 20ms.
+
+var lomTask = new Task(readTrackName)
+lomTask.interval = 40
 
 var emitTask = new Task(function() {
-  emitter.setFixtureName(getFixtureName())
   emitter.emit()
 })
 emitTask.interval = 40
+emitTask.delay = 20
+
+lomTask.start()
 emitTask.start()
 
-post('Penumbra fixture emitter started\n')
+post('Penumbra M4L channel strip emitter started\n')
 ```
 
-**Note on Max patch changes (manual, not in this plan):**
-The `device/Penumbra.maxpat` needs updating in the Max editor:
-1. Remove the lomTask wiring (no more LOM crawler)
-2. Add `live.dial` objects for each semantic parameter (intensity, color_r, color_g, color_b, color_w, pan, tilt, gobo, strobe_rate)
-3. Each dial sends a message to the `[js penumbra]` object: e.g. `[prepend setColorR]` → `[js penumbra]`
-4. Add a fixture type message box or `live.menu` to control which dials are visible (cosmetic only — all params are always emitted)
-5. The udpsend wiring on outlet 0 stays unchanged
-
-### Step 4: Run TS tests
-
-```bash
-pnpm --filter device-scripts test
-```
-
-Expected: all tests PASS (including the updated emitter tests)
-
-### Step 5: Build
+**Step 2: Build to verify no TypeScript errors**
 
 ```bash
 pnpm --filter device-scripts build
 ```
 
-Expected: `device/scripts/dist/main.js` rebuilt, no errors
+Expected: exits 0, produces `device/scripts/dist/main.js` with no errors.
 
-### Step 6: Commit
+If TypeScript complains about `msg_int` or `msg_float` being declared but not called (they are called by Max's runtime, not by JS): that's fine — these are Max message handlers invoked externally. Ignore any "declared but never read" warnings for Max globals.
+
+**Step 3: Confirm lib tests still pass**
 
 ```bash
-git add device/scripts/src/
-git commit -m "feat(m4l): rewrite emitter as per-fixture instrument; emit fixture-prefixed semantic params"
+pnpm --filter device-scripts test
+```
+
+Expected: all PASS (`main.ts` has no unit tests; only `lib/emitter.ts` is tested).
+
+**Step 4: Commit**
+
+```bash
+git add device/scripts/src/main.ts
+git commit -m "feat(m4l): rewrite main.ts as channel strip — presets, inlet handlers, track name from LOM"
 ```
 
 ---
 
-## Task 8: Update docs/config.md
+### Task 3: Update fake emitter and config.json to fixture label naming
 
 **Files:**
-- Modify: `docs/config.md` (note: this file may not exist in this worktree if PR #35 hasn't merged — if so, skip and note in PR description)
+- Modify: `tools/fake-emitter/main.go` (lines 43–49)
+- Modify: `server/config.json`
 
-Check if the file exists first:
+The fake emitter's `defaultParameters` and `config.json` must use the same label casing as the PRESETS in `main.ts`. This task updates both so running `task fake` shows the new parameter names in the server monitor.
 
-```bash
-ls docs/config.md 2>/dev/null && echo "exists" || echo "missing — skip this task"
+**Step 1: Update `defaultParameters` in `tools/fake-emitter/main.go`**
+
+Find the `defaultParameters` slice (around line 43) and replace it:
+
+```go
+// defaultParameters simulates two 6ch PAR fixtures.
+// Names match the M4L channel strip output: {track_name}_{Label}
+// Labels are Title Case to match the well-known preset label list.
+var defaultParameters = []string{
+	"track1_Dimmer", "track1_Red", "track1_Green", "track1_Blue", "track1_Strobe", "track1_Mode",
+	"track2_Dimmer", "track2_Red", "track2_Green", "track2_Blue", "track2_Strobe", "track2_Mode",
+}
 ```
 
-If it exists, add a `fixtures` section documenting the new schema after the `parameters` section. Document `FixtureInstance` fields (profile, universe, start_channel) and list the built-in profile names.
+**Step 2: Update `server/config.json`**
 
-If it doesn't exist (PR #35 not yet merged), note in the PR description that `docs/config.md` will need updating once #35 merges.
+Replace the file contents with the new parameter names. Two fixtures, each a 6ch PAR on separate universes:
+
+```json
+{
+  "universes": {
+    "1": {
+      "device_ip": "192.168.1.101",
+      "label": "stage left"
+    },
+    "2": {
+      "device_ip": "192.168.1.102",
+      "label": "stage right"
+    }
+  },
+  "parameters": {
+    "track1_Dimmer": [{ "universe": 1, "channel": 1 }],
+    "track1_Red":    [{ "universe": 1, "channel": 2 }],
+    "track1_Green":  [{ "universe": 1, "channel": 3 }],
+    "track1_Blue":   [{ "universe": 1, "channel": 4 }],
+    "track1_Strobe": [{ "universe": 1, "channel": 5 }],
+    "track1_Mode":   [{ "universe": 1, "channel": 6 }],
+    "track2_Dimmer": [{ "universe": 2, "channel": 1 }],
+    "track2_Red":    [{ "universe": 2, "channel": 2 }],
+    "track2_Green":  [{ "universe": 2, "channel": 3 }],
+    "track2_Blue":   [{ "universe": 2, "channel": 4 }],
+    "track2_Strobe": [{ "universe": 2, "channel": 5 }],
+    "track2_Mode":   [{ "universe": 2, "channel": 6 }]
+  }
+}
+```
+
+**Step 3: Build the fake emitter**
+
+```bash
+cd tools/fake-emitter && /usr/local/go/bin/go build . && cd ../..
+```
+
+Expected: exits 0, no errors.
+
+**Step 4: Run Go vet on the server**
+
+```bash
+cd server && /usr/local/go/bin/go vet ./... && cd ..
+```
+
+Expected: no output (vet is silent on success).
+
+**Step 5: Smoke test — verify the server sees the new names**
+
+Terminal 1:
+```bash
+cd server && /usr/local/go/bin/go run .
+```
+
+Terminal 2:
+```bash
+cd tools/fake-emitter && /usr/local/go/bin/go run . --mode static
+```
+
+Open `http://localhost:3000` in a browser. The monitor should show parameters named `track1_Dimmer`, `track1_Red`, `track1_Green`, `track1_Blue`, `track1_Strobe`, `track1_Mode` (and track2). Verify DMX channel values are non-zero (static mode sends 0.5 → 128). Kill both processes with Ctrl+C.
+
+**Step 6: Commit**
+
+```bash
+git add tools/fake-emitter/main.go server/config.json
+git commit -m "feat: update fake emitter and config.json to fixture label naming convention"
+```
 
 ---
 
-## Task 9: Open draft PR
+## End state
 
-```bash
-git push -u origin feat/fixture-library
-gh pr create \
-  --title "feat: fixture library, semantic M4L parameter model" \
-  --draft \
-  --body "Closes #36
+After these three tasks, the PoC is complete:
 
-## What this implements
-- \`server/fixture/\` — built-in profile library (6 profiles: Generic Par RGB/W, WLED RGB/W Zone, Moving Head, Strobe)
-- \`config.Config.Fixtures\` — fixture instances map; \`parameters\` kept for backward compat
-- E1.31 dispatcher resolves fixture instances via profile channel offsets
-- \`GET /api/fixtures\` — exposes built-in profiles to UI
-- Fake emitter updated to emit fixture-style semantic parameters
-- M4L device rewritten as per-fixture instrument (one device per track, emits \`{fixture_name}_{semantic}\`)
+- `lib/emitter.ts` exposes `setFixtureName`, `setChannels`, `setChannelValue`, `resetSession`, `emit` — fully tested
+- `main.ts` has 4 baked-in presets, handles inlet messages from dials and a preset selector
+- Fake emitter emits `track1_Dimmer`, `track1_Red`, etc. matching the M4L output convention
+- `config.json` wires those parameters to real DMX channels in universes 1 and 2
+- The full stack (fake emitter → server → E1.31) works end-to-end with the new naming
 
-## Not yet done
-- Max patch UI changes (live.dial wiring, fixture type dropdown) — requires manual work in Max editor
-- Server UI fixture instance editor (blocked on UI work in separate issues)
-- \`docs/config.md\` fixture schema section (pending PR #35 merge)
-"
-```
+**Not in scope for this PoC (deferred):**
+- Max patch changes: adding `live.dial` objects, `live.menu` for presets, `thispatcher` show/hide wiring — requires manual work in the Max editor
+- Server-side fixture profiles or `FixtureInstance` struct — not needed; the existing `parameters` map handles label-named keys
+- PWA fixture wizard / sequential auto-assign tooling
+- Free-text label entry in M4L (presets-only for PoC)
+- MIDI note → scene trigger (separate issue)
