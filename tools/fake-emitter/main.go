@@ -37,12 +37,35 @@ type StatePacket struct {
 	State     map[string]float64 `msgpack:"state"`
 }
 
-// defaultParameters simulates two 6ch PAR fixtures.
-// Names match the M4L channel strip output: {track_name}_{Label}
-// Labels are Title Case to match the well-known preset label list.
-var defaultParameters = []string{
-	"track1_Dimmer", "track1_Red", "track1_Green", "track1_Blue", "track1_Strobe", "track1_Mode",
-	"track2_Dimmer", "track2_Red", "track2_Green", "track2_Blue", "track2_Strobe", "track2_Mode",
+// Fixtures mirror the M4L preset library in device/scripts/src/main.ts.
+// Names use the same wire format as the real device: {fixture}_{Label}
+// where fixture is a lowercase track name and Label is Title Case.
+
+type fixture struct {
+	name   string   // simulated track name (lowercase, underscores)
+	labels []string // Title Case labels from the M4L preset library
+}
+
+var fixtures = []fixture{
+	{
+		name:   "par_front",
+		labels: []string{"Dimmer", "Red", "Green", "Blue", "Strobe", "Mode"},
+	},
+	{
+		name:   "mover_back",
+		labels: []string{"Pan", "Tilt", "Dimmer", "Color", "Gobo", "Speed"},
+	},
+}
+
+// allParameters is the flattened list of "{fixture}_{Label}" keys.
+var allParameters []string
+
+func init() {
+	for _, f := range fixtures {
+		for _, l := range f.labels {
+			allParameters = append(allParameters, f.name+"_"+l)
+		}
+	}
 }
 
 // ── Animated mode: independent random walk per parameter ──────────────────
@@ -128,8 +151,8 @@ var (
 
 func initAnimated() {
 	animRand = rand.New(rand.NewSource(time.Now().UnixNano()))
-	animParams = make(map[string]*animParam, len(defaultParameters))
-	for _, p := range defaultParameters {
+	animParams = make(map[string]*animParam, len(allParameters))
+	for _, p := range allParameters {
 		ap := newAnimParam(animRand)
 		animParams[p] = &ap
 	}
@@ -169,7 +192,7 @@ func main() {
 	defer conn.Close()
 
 	log.Printf("Fake emitter running — mode=%s target=%s session=%s", *mode, *target, *sessionID)
-	log.Printf("Parameters: %v", defaultParameters)
+	log.Printf("Parameters: %v", allParameters)
 	log.Printf("Press Ctrl+C to stop")
 
 	ticker := time.NewTicker(40 * time.Millisecond)
@@ -206,26 +229,26 @@ func main() {
 }
 
 func buildState(mode string, elapsed float64) map[string]float64 {
-	state := make(map[string]float64, len(defaultParameters))
+	state := make(map[string]float64, len(allParameters))
 
 	switch mode {
 	case "static":
 		// Fixed mid-value for all parameters — good for plumbing tests.
-		for _, p := range defaultParameters {
+		for _, p := range allParameters {
 			state[p] = 0.5
 		}
 
 	case "animated":
 		// Independent random walk: each parameter moves toward its own target
 		// and picks a new one on arrival. No periodicity, no convergence to 0.5.
-		for _, p := range defaultParameters {
+		for _, p := range allParameters {
 			state[p] = animParams[p].advance(animRand)
 		}
 
 	case "stress":
 		// Fast sine sweeps for load/hardware testing.
-		for i, p := range defaultParameters {
-			phase := float64(i) * (math.Pi / float64(len(defaultParameters)))
+		for i, p := range allParameters {
+			phase := float64(i) * (math.Pi / float64(len(allParameters)))
 			rate := 0.2 + float64(i)*0.05
 			state[p] = (math.Sin(elapsed*rate+phase) + 1) / 2
 		}
