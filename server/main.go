@@ -78,13 +78,15 @@ func main() {
 			program.Send(tui.SessionMsg(pkt.SessionID))
 		}
 
+		if hub.IsBlackout() {
+			return
+		}
+
 		changed := stateMirror.Update(pkt)
 		if changed {
+			dispatcher.Dispatch(pkt.State, cfg)
 			if program != nil {
 				program.Send(tui.ParamUpdateMsg(pkt.State))
-			}
-			if !hub.IsBlackout() {
-				dispatcher.Dispatch(pkt.State, cfg)
 			}
 		}
 	})
