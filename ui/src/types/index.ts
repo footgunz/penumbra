@@ -22,8 +22,10 @@ export type {
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
 
-/** Full config object matching GET /api/config response */
+/** Full config object matching GET /api/config response (server/config/config.go) */
 export interface AppConfig {
   universes: Record<string, UniverseConfig>
   parameters: Record<string, ParameterConfig>
+  emitter?: { timeout_ms: number }
+  blackout_scene?: Record<string, number>
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import CodeMirror, { oneDark } from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,8 @@ export function AdvancedPanel({ configJson, onSave }: AdvancedPanelProps) {
   const [value, setValue] = useState(configJson)
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => { setValue(configJson) }, [configJson])
 
   const handleSave = useCallback(async () => {
     setErrorMsg(null)
