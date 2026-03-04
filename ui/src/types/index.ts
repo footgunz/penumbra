@@ -26,6 +26,6 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
 export interface AppConfig {
   universes: Record<string, UniverseConfig>
   parameters: Record<string, ParameterConfig>
-  emitter?: { timeout_ms: number }
+  emitter?: { idle_timeout_s: number; disconnect_timeout_s: number }
   blackout_scene?: Record<string, number>
 }
