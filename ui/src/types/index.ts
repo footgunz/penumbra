@@ -1,4 +1,9 @@
-// Re-export all wire types from the shared protocol-types package.
+// Import + re-export wire types from the shared protocol-types package.
+import type {
+  UniverseConfig,
+  ParameterConfig,
+} from '@penumbra/protocol-types'
+
 export type {
   SessionMessage,
   StateMessage,
@@ -16,3 +21,9 @@ export type {
 // UI-only types
 
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
+
+/** Full config object matching GET /api/config response */
+export interface AppConfig {
+  universes: Record<string, UniverseConfig>
+  parameters: Record<string, ParameterConfig>
+}
