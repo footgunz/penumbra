@@ -1,92 +1,109 @@
 import { useCallback, useEffect, useState } from 'react'
-import CodeMirror, { oneDark } from '@uiw/react-codemirror'
-import { json } from '@codemirror/lang-json'
-import { Button } from '@/components/ui/button'
-
-type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import type { AppConfig } from '@/types'
+import { UniversesPanel } from './config/UniversesPanel'
+import { MappingPanel } from './config/MappingPanel'
+import { ZonesPanel } from './config/ZonesPanel'
+import { AdvancedPanel } from './config/AdvancedPanel'
 
 export function ConfigEditor() {
-  const [value, setValue] = useState('')
-  const [saveState, setSaveState] = useState<SaveState>('idle')
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/config')
       .then((r) => {
         if (!r.ok) throw new Error(`fetch failed: ${r.status}`)
-        return r.text()
+        return r.json()
       })
-      .then(setValue)
-      .catch((e: Error) => {
-        setErrorMsg(e.message)
-      })
+      .then((data: AppConfig) => setConfig(data))
+      .catch((e: Error) => setError(e.message))
   }, [])
 
-  const handleSave = useCallback(async () => {
-    setErrorMsg(null)
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(value)
-    } catch (e) {
-      setErrorMsg('Invalid JSON: ' + (e instanceof Error ? e.message : String(e)))
-      return
+  const saveConfig = useCallback(async (updated: AppConfig) => {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    })
+    if (!r.ok) {
+      const text = await r.text()
+      throw new Error(text.trim() || `HTTP ${r.status}`)
     }
+    setConfig(updated)
+  }, [])
 
-    setSaveState('saving')
-    try {
-      const r = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed),
-      })
-      if (!r.ok) {
-        const text = await r.text()
-        throw new Error(text.trim() || `HTTP ${r.status}`)
-      }
-      setSaveState('saved')
-      setTimeout(() => setSaveState('idle'), 2000)
-    } catch (e) {
-      setSaveState('error')
-      setErrorMsg(e instanceof Error ? e.message : String(e))
-    }
-  }, [value])
+  const handleAdvancedSave = useCallback(async (jsonStr: string) => {
+    const parsed = JSON.parse(jsonStr) as AppConfig
+    await saveConfig(parsed)
+  }, [saveConfig])
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center flex-1 text-error-text text-sm">
+        Failed to load config: {error}
+      </div>
+    )
+  }
+
+  if (!config) {
+    return (
+      <div className="flex items-center justify-center flex-1 text-text-muted text-sm">
+        Loading config…
+      </div>
+    )
+  }
 
   return (
     <>
-      {/* Mobile: show message instead of editor */}
+      {/* Mobile: show message */}
       <div className="md:hidden flex items-center justify-center flex-1 p-8 text-text-muted text-sm text-center">
         Config editor is available on desktop (768px+).
       </div>
 
-      {/* Desktop: full editor */}
+      {/* Desktop: sub-tabbed editor */}
       <div className="hidden md:flex flex-col flex-1 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
-          <span className="text-xs font-semibold tracking-widest uppercase text-text-dim">
-            Expert config editor
-          </span>
-          <Button
-            size="sm"
-            disabled={saveState === 'saving'}
-            onClick={handleSave}
-          >
-            {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
-          </Button>
-        </div>
-        <div className="flex-1 overflow-auto">
-          <CodeMirror
-            value={value}
-            onChange={setValue}
-            extensions={[json()]}
-            theme={oneDark}
-            style={{ height: '100%', fontSize: 13 }}
-            basicSetup={{ lineNumbers: true, foldGutter: true }}
-          />
-        </div>
-        {errorMsg && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-error-border bg-error-bg text-error-text text-xs px-4 py-2">
-            {errorMsg}
-          </div>
-        )}
+        <Tabs defaultValue="universes" className="flex flex-col flex-1 overflow-hidden">
+          <TabsList className="w-full justify-start rounded-none border-b border-border bg-surface px-2 h-10">
+            <TabsTrigger value="universes" className="text-xs font-semibold tracking-wider uppercase">
+              Universes
+            </TabsTrigger>
+            <TabsTrigger value="mapping" className="text-xs font-semibold tracking-wider uppercase">
+              Mapping
+            </TabsTrigger>
+            <TabsTrigger value="zones" className="text-xs font-semibold tracking-wider uppercase">
+              Zones
+            </TabsTrigger>
+            <TabsTrigger value="advanced" className="text-xs font-semibold tracking-wider uppercase">
+              Advanced
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="universes" className="flex-1 overflow-hidden data-[state=active]:flex">
+            <UniversesPanel
+              universes={config.universes}
+              onChange={(universes) => setConfig({ ...config, universes })}
+            />
+          </TabsContent>
+
+          <TabsContent value="mapping" className="flex-1 overflow-hidden data-[state=active]:flex">
+            <MappingPanel
+              parameters={config.parameters}
+              onChange={(parameters) => setConfig({ ...config, parameters })}
+            />
+          </TabsContent>
+
+          <TabsContent value="zones" className="flex-1 overflow-hidden data-[state=active]:flex">
+            <ZonesPanel />
+          </TabsContent>
+
+          <TabsContent value="advanced" className="flex-1 overflow-hidden data-[state=active]:flex">
+            <AdvancedPanel
+              configJson={JSON.stringify(config, null, 2)}
+              onSave={handleAdvancedSave}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   )
