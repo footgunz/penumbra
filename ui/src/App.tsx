@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AppConfig, ServerMessage, StatusMessage } from './types'
 import { client } from './ws/client'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { AppSidebar, type Section } from './components/AppSidebar'
 import { StatusBar } from './components/StatusBar'
@@ -156,33 +157,39 @@ export function App() {
             onSave={handleAdvancedSave}
           />
         )
+      default: {
+        const _exhaustive: never = section
+        return _exhaustive
+      }
     }
   }
+
+  const isMobile = useIsMobile()
 
   return (
     <SidebarProvider>
       <div className="min-h-dvh bg-background text-text flex w-full">
         {/* Sidebar — hidden on mobile */}
-        <div className="hidden md:contents">
-          <AppSidebar active={section} onSelect={setSection} />
-        </div>
+        {!isMobile && <AppSidebar active={section} onSelect={setSection} />}
 
         {/* Main content */}
         <main className="flex flex-col flex-1 overflow-hidden">
           <StatusBar status={status} sessionId={sessionId} />
 
-          {/* Mobile: monitor only + config note */}
-          <div className="md:hidden flex flex-col flex-1 overflow-hidden">
-            <MonitorPanel params={params} status={status} />
-            <div className="px-4 py-2 text-center text-text-faint text-xs border-t border-border">
-              Configure on desktop or tablet
+          {isMobile ? (
+            /* Mobile: monitor only + config note */
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <MonitorPanel params={params} status={status} />
+              <div className="px-4 py-2 text-center text-text-faint text-xs border-t border-border">
+                Configure on desktop or tablet
+              </div>
             </div>
-          </div>
-
-          {/* Desktop/tablet: sidebar-driven content */}
-          <div className="hidden md:flex flex-1 overflow-hidden">
-            {renderContent()}
-          </div>
+          ) : (
+            /* Desktop/tablet: sidebar-driven content */
+            <div className="flex flex-1 overflow-hidden">
+              {renderContent()}
+            </div>
+          )}
         </main>
       </div>
     </SidebarProvider>
