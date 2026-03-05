@@ -9,11 +9,15 @@
     "lint": "eslint src/**/*.ts src/**/*.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "playwright": "playwright test --pass-with-no-tests"
+    "playwright": "playwright test --pass-with-no-tests",
+    "i18n:extract": "lingui extract",
+    "i18n:compile": "lingui compile --typescript"
   },
   "dependencies": {
-    "@penumbra/protocol-types": "workspace:*",
     "@codemirror/lang-json": "^6.0.2",
+    "@lingui/core": "^5.9.2",
+    "@lingui/react": "^5.9.2",
+    "@penumbra/protocol-types": "workspace:*",
     "@tailwindcss/vite": "^4.2.1",
     "@uiw/react-codemirror": "^4.25.5",
     "class-variance-authority": "^0.7.1",
@@ -26,6 +30,10 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
+    "@lingui/babel-plugin-lingui-macro": "^5.9.2",
+    "@lingui/cli": "^5.9.2",
+    "@lingui/conf": "^5.9.2",
+    "@lingui/macro": "^5.9.2",
     "@playwright/test": "^1.50.0",
     "@types/node": "^20.19.35",
     "@types/react": "^18.0.0",

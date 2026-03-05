@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro'
 import {
   Activity,
   Globe,
@@ -30,18 +31,22 @@ export type Section =
   | 'emitter'
   | 'advanced'
 
-const configItems: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'universes', label: 'Universes', icon: Globe },
-  { id: 'fixtures', label: 'Fixtures', icon: Lightbulb },
-  { id: 'mapping', label: 'Channel Mapping', icon: Cable },
-  { id: 'zones', label: 'Zones', icon: Map },
-  { id: 'scenes', label: 'Scenes', icon: Clapperboard },
-]
+function configItems(): { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] {
+  return [
+    { id: 'universes', label: t`Universes`, icon: Globe },
+    { id: 'fixtures', label: t`Fixtures`, icon: Lightbulb },
+    { id: 'mapping', label: t`Channel Mapping`, icon: Cable },
+    { id: 'zones', label: t`Zones`, icon: Map },
+    { id: 'scenes', label: t`Scenes`, icon: Clapperboard },
+  ]
+}
 
-const systemItems: { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'emitter', label: 'Emitter', icon: Radio },
-  { id: 'advanced', label: 'Advanced', icon: Code },
-]
+function systemItems(): { id: Section; label: string; icon: React.ComponentType<{ className?: string }> }[] {
+  return [
+    { id: 'emitter', label: t`Emitter`, icon: Radio },
+    { id: 'advanced', label: t`Advanced`, icon: Code },
+  ]
+}
 
 interface AppSidebarProps {
   active: Section
@@ -66,10 +71,10 @@ export function AppSidebar({ active, onSelect }: AppSidebarProps) {
               <SidebarMenuButton
                 isActive={active === 'monitor'}
                 onClick={() => onSelect('monitor')}
-                tooltip="Monitor"
+                tooltip={t`Monitor`}
               >
                 <Activity />
-                <span>Monitor</span>
+                <span>{t`Monitor`}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -77,9 +82,9 @@ export function AppSidebar({ active, onSelect }: AppSidebarProps) {
 
         {/* Config sections */}
         <SidebarGroup>
-          <SidebarGroupLabel>Configuration</SidebarGroupLabel>
+          <SidebarGroupLabel>{t`Configuration`}</SidebarGroupLabel>
           <SidebarMenu>
-            {configItems.map((item) => (
+            {configItems().map((item) => (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   isActive={active === item.id}
@@ -96,9 +101,9 @@ export function AppSidebar({ active, onSelect }: AppSidebarProps) {
 
         {/* System sections */}
         <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
+          <SidebarGroupLabel>{t`System`}</SidebarGroupLabel>
           <SidebarMenu>
-            {systemItems.map((item) => (
+            {systemItems().map((item) => (
               <SidebarMenuItem key={item.id}>
                 <SidebarMenuButton
                   isActive={active === item.id}

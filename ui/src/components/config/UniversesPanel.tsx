@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '@lingui/core/macro'
 import type { UniverseConfig, StatusMessage } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,15 +58,15 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
     if (!editState || editingId === null) return
     const newId = editState.id.trim()
     if (!newId || isNaN(Number(newId)) || Number(newId) < 1) {
-      setError('Universe ID must be a positive number')
+      setError(t`Universe ID must be a positive number`)
       return
     }
     if (newId !== editingId && universes[newId]) {
-      setError(`Universe ${newId} already exists`)
+      setError(t`Universe ${newId} already exists`)
       return
     }
     if (!editState.device_ip.trim()) {
-      setError('IP address is required')
+      setError(t`IP address is required`)
       return
     }
 
@@ -83,7 +84,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
       await onSave(updated)
       cancelEdit()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t`Save failed`)
     } finally {
       setSaving(false)
     }
@@ -100,7 +101,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
       await onSave(updated)
       setConfirmDeleteId(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Delete failed')
+      setError(e instanceof Error ? e.message : t`Delete failed`)
     } finally {
       setSaving(false)
     }
@@ -109,15 +110,15 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
   async function saveAdd() {
     const id = addState.id.trim()
     if (!id || isNaN(Number(id)) || Number(id) < 1) {
-      setError('Universe ID must be a positive number')
+      setError(t`Universe ID must be a positive number`)
       return
     }
     if (universes[id]) {
-      setError(`Universe ${id} already exists`)
+      setError(t`Universe ${id} already exists`)
       return
     }
     if (!addState.device_ip.trim()) {
-      setError('IP address is required')
+      setError(t`IP address is required`)
       return
     }
 
@@ -134,7 +135,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
       setAdding(false)
       setAddState({ id: '', device_ip: '', label: '', type: 'wled' })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed')
+      setError(e instanceof Error ? e.message : t`Save failed`)
     } finally {
       setSaving(false)
     }
@@ -153,10 +154,10 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
     <div className="flex-1 overflow-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-text-muted">
-          Universes ({entries.length})
+          {t`Universes (${entries.length})`}
         </h2>
         {!adding && (
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={startAdd} title="Add universe">
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={startAdd} title={t`Add universe`}>
             <Plus className="h-4 w-4" />
           </Button>
         )}
@@ -178,7 +179,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
             return (
               <div key={id} className="rounded border border-accent/40 bg-surface p-3">
                 <div className="grid grid-cols-[80px_1fr] gap-2 items-center text-sm">
-                  <label className="text-text-faint text-xs">Universe</label>
+                  <label className="text-text-faint text-xs">{t`Universe`}</label>
                   <Input
                     type="number"
                     min={1}
@@ -186,19 +187,19 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                     onChange={(e) => setEditState({ ...editState, id: e.target.value })}
                     className="h-8 text-sm"
                   />
-                  <label className="text-text-faint text-xs">IP</label>
+                  <label className="text-text-faint text-xs">{t`IP`}</label>
                   <Input
                     value={editState.device_ip}
                     onChange={(e) => setEditState({ ...editState, device_ip: e.target.value })}
                     className="h-8 text-sm font-mono"
                   />
-                  <label className="text-text-faint text-xs">Label</label>
+                  <label className="text-text-faint text-xs">{t`Label`}</label>
                   <Input
                     value={editState.label}
                     onChange={(e) => setEditState({ ...editState, label: e.target.value })}
                     className="h-8 text-sm"
                   />
-                  <label className="text-text-faint text-xs">Type</label>
+                  <label className="text-text-faint text-xs">{t`Type`}</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -227,10 +228,10 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                   </div>
                 </div>
                 <div className="flex gap-1 mt-3 justify-end">
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={cancelEdit} disabled={saving} title="Cancel">
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={cancelEdit} disabled={saving} title={t`Cancel`}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={saveEdit} disabled={saving} title="Save">
+                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={saveEdit} disabled={saving} title={t`Save`}>
                     <Check className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -265,14 +266,14 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
               )}
               {isConfirmingDelete ? (
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-error-text text-xs mr-1">Delete?</span>
+                  <span className="text-error-text text-xs mr-1">{t`Delete?`}</span>
                   <Button
                     variant="outline"
                     size="icon"
                     className="h-7 w-7 border-error-border text-error-text hover:bg-error-bg"
                     onClick={() => deleteUniverse(id)}
                     disabled={saving}
-                    title="Confirm delete"
+                    title={t`Confirm delete`}
                   >
                     <Check className="h-3.5 w-3.5" />
                   </Button>
@@ -282,7 +283,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                     className="h-7 w-7"
                     onClick={() => setConfirmDeleteId(null)}
                     disabled={saving}
-                    title="Cancel delete"
+                    title={t`Cancel delete`}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
@@ -294,7 +295,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                     size="icon"
                     className="h-7 w-7"
                     onClick={() => startEdit(id, u)}
-                    title="Edit universe"
+                    title={t`Edit universe`}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -303,7 +304,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                     size="icon"
                     className="h-7 w-7 text-text-faint hover:text-error-text hover:border-error-border"
                     onClick={() => { setConfirmDeleteId(id); setEditingId(null); setAdding(false); setError(null) }}
-                    title="Delete universe"
+                    title={t`Delete universe`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -316,7 +317,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
         {adding && (
           <div className="rounded border border-accent/40 bg-surface p-3">
             <div className="grid grid-cols-[80px_1fr] gap-2 items-center text-sm">
-              <label className="text-text-faint text-xs">Universe</label>
+              <label className="text-text-faint text-xs">{t`Universe`}</label>
               <Input
                 type="number"
                 min={1}
@@ -324,19 +325,19 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                 onChange={(e) => setAddState({ ...addState, id: e.target.value })}
                 className="h-8 text-sm"
               />
-              <label className="text-text-faint text-xs">IP</label>
+              <label className="text-text-faint text-xs">{t`IP`}</label>
               <Input
                 value={addState.device_ip}
                 onChange={(e) => setAddState({ ...addState, device_ip: e.target.value })}
                 className="h-8 text-sm font-mono"
               />
-              <label className="text-text-faint text-xs">Label</label>
+              <label className="text-text-faint text-xs">{t`Label`}</label>
               <Input
                 value={addState.label}
                 onChange={(e) => setAddState({ ...addState, label: e.target.value })}
                 className="h-8 text-sm"
               />
-              <label className="text-text-faint text-xs">Type</label>
+              <label className="text-text-faint text-xs">{t`Type`}</label>
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -365,10 +366,10 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
               </div>
             </div>
             <div className="flex gap-1 mt-3 justify-end">
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => { setAdding(false); setError(null) }} disabled={saving} title="Cancel">
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => { setAdding(false); setError(null) }} disabled={saving} title={t`Cancel`}>
                 <X className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={saveAdd} disabled={saving} title="Save">
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={saveAdd} disabled={saving} title={t`Save`}>
                 <Check className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -377,7 +378,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
 
         {entries.length === 0 && !adding && (
           <div className="text-text-faint text-sm text-center py-8">
-            No universes configured. Click + to get started.
+            {t`No universes configured. Click + to get started.`}
           </div>
         )}
       </div>
@@ -392,7 +393,7 @@ function StatusDot({ online }: { online: boolean }) {
         'inline-block w-2 h-2 rounded-full shrink-0',
         online ? 'bg-success' : 'bg-error'
       )}
-      title={online ? 'Online' : 'Offline'}
+      title={online ? t`Online` : t`Offline`}
     />
   )
 }

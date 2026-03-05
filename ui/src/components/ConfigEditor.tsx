@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { t } from '@lingui/core/macro'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import type { AppConfig } from '@/types'
 import { UniversesPanel } from './config/UniversesPanel'
@@ -41,7 +42,7 @@ export function ConfigEditor() {
   if (error) {
     return (
       <div className="flex items-center justify-center flex-1 text-error-text text-sm">
-        Failed to load config: {error}
+        {t`Failed to load config: ${error}`}
       </div>
     )
   }
@@ -49,7 +50,7 @@ export function ConfigEditor() {
   if (!config) {
     return (
       <div className="flex items-center justify-center flex-1 text-text-muted text-sm">
-        Loading config…
+        {t`Loading config…`}
       </div>
     )
   }
@@ -58,7 +59,7 @@ export function ConfigEditor() {
     <>
       {/* Mobile: show message */}
       <div className="md:hidden flex items-center justify-center flex-1 p-8 text-text-muted text-sm text-center">
-        Config editor is available on desktop (768px+).
+        {t`Config editor is available on desktop (768px+).`}
       </div>
 
       {/* Desktop: sub-tabbed editor */}
@@ -66,16 +67,16 @@ export function ConfigEditor() {
         <Tabs defaultValue="universes" className="flex flex-col flex-1 overflow-hidden">
           <TabsList className="w-full justify-start rounded-none border-b border-border bg-surface px-2 h-10">
             <TabsTrigger value="universes" className="text-xs font-semibold tracking-wider uppercase">
-              Universes
+              {t`Universes`}
             </TabsTrigger>
             <TabsTrigger value="mapping" className="text-xs font-semibold tracking-wider uppercase">
-              Mapping
+              {t`Mapping`}
             </TabsTrigger>
             <TabsTrigger value="zones" className="text-xs font-semibold tracking-wider uppercase">
-              Zones
+              {t`Zones`}
             </TabsTrigger>
             <TabsTrigger value="advanced" className="text-xs font-semibold tracking-wider uppercase">
-              Advanced
+              {t`Advanced`}
             </TabsTrigger>
           </TabsList>
 
