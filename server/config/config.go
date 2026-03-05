@@ -45,9 +45,12 @@ func (s EmitterState) String() string {
 // UniverseConfig maps a universe number (integer key) to its WLED device IP and label.
 // DeviceIP is the unicast LAN address used for HTTP health probing — not the E1.31
 // multicast destination, which is derived from the universe number directly.
+// Type is "wled" or "gateway" — the WLED prober only probes "wled" devices.
 type UniverseConfig struct {
-	DeviceIP string `json:"device_ip"`
-	Label    string `json:"label"`
+	DeviceIP string            `json:"device_ip"`
+	Type     string            `json:"type"`
+	Label    string            `json:"label"`
+	Channels map[string]string `json:"channels,omitempty"`
 }
 
 // ChannelTarget identifies a single DMX channel within a universe.

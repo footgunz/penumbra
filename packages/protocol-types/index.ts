@@ -37,6 +37,7 @@ export interface ChannelInfo {
 export interface UniverseStatus {
   label: string
   device_ip: string
+  type: 'wled' | 'gateway'
   online: boolean
   channels: ChannelInfo[]
 }
@@ -58,7 +59,9 @@ export type ServerMessage = SessionMessage | StateMessage | DiffMessage | Status
 
 export interface UniverseConfig {
   device_ip: string
+  type: 'wled' | 'gateway'
   label: string
+  channels?: Record<string, string>
 }
 
 export interface ParameterConfig {
