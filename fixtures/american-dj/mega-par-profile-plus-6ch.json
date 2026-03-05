@@ -1,0 +1,7 @@
+{
+  "name": "American DJ Mega Par Profile Plus (6ch)",
+  "shortName": "Mega Par 6ch",
+  "manufacturer": "American DJ",
+  "channelCount": 6,
+  "channels": ["Red", "Green", "Blue", "UV", "Strobe", "Dimmer"]
+}

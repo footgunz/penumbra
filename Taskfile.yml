@@ -76,9 +76,18 @@ tasks:
     desc: Build all components (parallel)
     deps: [build:go, build:ts]
 
+  gen:fixtures:
+    desc: Generate server/fixtures/library.go from fixtures/*.json
+    cmds:
+      - go run ./tools/gen-fixtures/main.go
+    sources:
+      - 'fixtures/**/*.json'
+    generates:
+      - 'server/fixtures/library.go'
+
   build:go:
     desc: Build Go server and fake emitter
-    deps: [build:ui]  # UI must be built first for embed.FS
+    deps: [build:ui, gen:fixtures]  # UI + fixtures must be generated first
     cmds:
       - go build -o penumbra-server .
       - cd ../{{.EMITTER_DIR}} && go build ./...

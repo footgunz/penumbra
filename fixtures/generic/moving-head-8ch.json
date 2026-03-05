@@ -1,0 +1,7 @@
+{
+  "name": "Generic Moving Head (8ch)",
+  "shortName": "Mover 8ch",
+  "manufacturer": "Generic",
+  "channelCount": 8,
+  "channels": ["Pan", "Tilt", "Dimmer", "Red", "Green", "Blue", "White", "Strobe"]
+}

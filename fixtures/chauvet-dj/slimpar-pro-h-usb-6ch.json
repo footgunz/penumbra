@@ -1,0 +1,7 @@
+{
+  "name": "Chauvet DJ SlimPAR Pro H USB (6ch)",
+  "shortName": "SlimPAR 6ch",
+  "manufacturer": "Chauvet DJ",
+  "channelCount": 6,
+  "channels": ["Red", "Green", "Blue", "Amber", "White", "UV"]
+}

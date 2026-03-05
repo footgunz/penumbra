@@ -20,6 +20,15 @@ export type {
 
 // UI-only types
 
+/** Fixture definition from GET /api/fixtures (server/fixtures/library.go) */
+export interface Fixture {
+  name: string
+  shortName: string
+  manufacturer: string
+  channelCount: number
+  channels: string[]
+}
+
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected'
 
 /** Full config object matching GET /api/config response (server/config/config.go) */

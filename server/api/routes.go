@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/footgunz/penumbra/config"
+	"github.com/footgunz/penumbra/fixtures"
 	"github.com/footgunz/penumbra/ui"
 	"github.com/footgunz/penumbra/ws"
 )
@@ -79,8 +80,10 @@ connect();
 //   POST /api/config     → Update universe/parameter mapping and persist
 //   POST /api/blackout   → Enter blackout mode
 //   POST /api/reset      → Exit blackout mode
+//   GET  /api/fixtures   → List all fixtures
+//   POST /api/fixtures   → Add a fixture (in-memory only)
 //   GET  /               → Serve embedded Vite/React PWA (ui/dist)
-func NewRouter(hub *ws.Hub, cfg *config.Config, port int, onConfigUpdate func(*config.Config)) *http.Server {
+func NewRouter(hub *ws.Hub, cfg *config.Config, fixtureStore *fixtures.Store, port int, onConfigUpdate func(*config.Config)) *http.Server {
 	mux := http.NewServeMux()
 
 	// WebSocket endpoint
@@ -157,6 +160,54 @@ func NewRouter(hub *ws.Hub, cfg *config.Config, port int, onConfigUpdate func(*c
 		hub.Reset()
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"ok":true,"blackout":false}`))
+	})
+
+	// Fixture endpoints — GET lists all, POST adds one (in-memory only)
+	mux.HandleFunc("/api/fixtures", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			data, err := json.Marshal(fixtureStore.All())
+			if err != nil {
+				http.Error(w, "marshal error", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(data)
+
+		case http.MethodPost:
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "read error", http.StatusBadRequest)
+				return
+			}
+			var req struct {
+				Key     string          `json:"key"`
+				Fixture fixtures.Fixture `json:"fixture"`
+			}
+			if err := json.Unmarshal(body, &req); err != nil {
+				http.Error(w, "invalid JSON", http.StatusBadRequest)
+				return
+			}
+			if req.Key == "" {
+				http.Error(w, "key is required", http.StatusBadRequest)
+				return
+			}
+			if req.Fixture.ChannelCount != len(req.Fixture.Channels) {
+				http.Error(w, "channelCount must match channels length", http.StatusBadRequest)
+				return
+			}
+			if err := fixtureStore.Add(req.Key, req.Fixture); err != nil {
+				http.Error(w, err.Error(), http.StatusConflict)
+				return
+			}
+			log.Printf("api: fixture added: %s (%d channels)", req.Key, req.Fixture.ChannelCount)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"ok":true}`))
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
 
 	// E-Stop page — standalone mobile-friendly big red button

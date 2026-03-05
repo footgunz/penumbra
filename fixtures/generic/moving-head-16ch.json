@@ -1,0 +1,7 @@
+{
+  "name": "Generic Moving Head (16ch)",
+  "shortName": "Mover 16ch",
+  "manufacturer": "Generic",
+  "channelCount": 16,
+  "channels": ["Pan", "Pan Fine", "Tilt", "Tilt Fine", "Dimmer", "Red", "Green", "Blue", "White", "Strobe", "Color", "Gobo", "Gobo Rotation", "Prism", "Speed", "Focus"]
+}

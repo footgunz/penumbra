@@ -1,0 +1,7 @@
+{
+  "name": "Generic RGBAW Par (6ch)",
+  "shortName": "RGBAW 6ch",
+  "manufacturer": "Generic",
+  "channelCount": 6,
+  "channels": ["Dimmer", "Red", "Green", "Blue", "Amber", "White"]
+}
