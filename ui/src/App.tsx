@@ -1,21 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ServerMessage, StatusMessage } from './types'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { AppConfig, ServerMessage, StatusMessage } from './types'
 import { client } from './ws/client'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { SidebarProvider } from '@/components/ui/sidebar'
+import { AppSidebar, type Section } from './components/AppSidebar'
 import { StatusBar } from './components/StatusBar'
-import { ParameterGrid } from './components/ParameterGrid'
-import { UniverseList } from './components/UniverseList'
-import { ConfigEditor } from './components/ConfigEditor'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-
-type Tab = 'monitor' | 'configure'
+import { MonitorPanel } from './components/MonitorPanel'
+import { UniversesPanel } from './components/config/UniversesPanel'
+import { MappingPanel } from './components/config/MappingPanel'
+import { ZonesPanel } from './components/config/ZonesPanel'
+import { AdvancedPanel } from './components/config/AdvancedPanel'
+import { FixturesPanel } from './components/config/FixturesPanel'
+import { ScenesPanel } from './components/config/ScenesPanel'
+import { EmitterPanel } from './components/config/EmitterPanel'
 
 export function App() {
+  // --- Monitor state (WebSocket) ---
   const [params, setParams] = useState<Record<string, number>>({})
   const [status, setStatus] = useState<StatusMessage | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('monitor')
   const pendingDiffs = useRef<Record<string, number>>({})
 
+  // --- Navigation ---
+  const [section, setSection] = useState<Section>('monitor')
+
+  // --- Config state (HTTP) ---
+  const [config, setConfig] = useState<AppConfig | null>(null)
+  const [configError, setConfigError] = useState<string | null>(null)
+
+  // WebSocket setup
   useEffect(() => {
     const wsUrl =
       window.location.protocol === 'https:'
@@ -23,8 +36,6 @@ export function App() {
         : `ws://${window.location.host}/ws`
     client.connect(wsUrl)
 
-    // Flush buffered diffs at 100ms — longer than the 80ms CSS bar transition so
-    // animations complete cleanly between updates and the text is readable.
     const flushInterval = setInterval(() => {
       const pending = pendingDiffs.current
       if (Object.keys(pending).length > 0) {
@@ -60,74 +71,127 @@ export function App() {
     }
   }, [])
 
+  // Fetch config on mount
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => {
+        if (!r.ok) throw new Error(`fetch failed: ${r.status}`)
+        return r.json()
+      })
+      .then((data: AppConfig) => setConfig(data))
+      .catch((e: Error) => setConfigError(e.message))
+  }, [])
+
+  const saveConfig = useCallback(async (updated: AppConfig) => {
+    const r = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    })
+    if (!r.ok) {
+      const text = await r.text()
+      throw new Error(text.trim() || `HTTP ${r.status}`)
+    }
+    setConfig(updated)
+  }, [])
+
+  const handleAdvancedSave = useCallback(async (jsonStr: string) => {
+    const parsed = JSON.parse(jsonStr) as AppConfig
+    await saveConfig(parsed)
+  }, [saveConfig])
+
+  // Render the active section's content
+  function renderContent() {
+    if (section === 'monitor') {
+      return <MonitorPanel params={params} status={status} />
+    }
+
+    // All config sections need config loaded
+    if (configError) {
+      return (
+        <div className="flex items-center justify-center flex-1 text-error-text text-sm">
+          Failed to load config: {configError}
+        </div>
+      )
+    }
+    if (!config) {
+      return (
+        <div className="flex items-center justify-center flex-1 text-text-muted text-sm">
+          Loading config…
+        </div>
+      )
+    }
+
+    switch (section) {
+      case 'universes':
+        return (
+          <UniversesPanel
+            universes={config.universes}
+            onChange={(universes) => setConfig({ ...config, universes })}
+          />
+        )
+      case 'fixtures':
+        return <FixturesPanel />
+      case 'mapping':
+        return (
+          <MappingPanel
+            parameters={config.parameters}
+            onChange={(parameters) => setConfig({ ...config, parameters })}
+          />
+        )
+      case 'zones':
+        return <ZonesPanel />
+      case 'scenes':
+        return <ScenesPanel />
+      case 'emitter':
+        return (
+          <EmitterPanel
+            emitter={config.emitter}
+            onChange={(emitter) => setConfig({ ...config, emitter })}
+          />
+        )
+      case 'advanced':
+        return (
+          <AdvancedPanel
+            configJson={JSON.stringify(config, null, 2)}
+            onSave={handleAdvancedSave}
+          />
+        )
+      default: {
+        const _exhaustive: never = section
+        return _exhaustive
+      }
+    }
+  }
+
+  const isMobile = useIsMobile()
+
   return (
-    <div className="min-h-dvh bg-background text-text flex flex-col">
-      <StatusBar status={status} sessionId={sessionId} />
+    <SidebarProvider>
+      <div className="min-h-dvh bg-background text-text flex w-full">
+        {/* Sidebar — hidden on mobile */}
+        {!isMobile && <AppSidebar active={section} onSelect={setSection} />}
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => setTab(v as Tab)}
-        className="flex flex-col flex-1 overflow-hidden"
-      >
-        {/* Desktop tab bar — top, hidden on mobile */}
-        <TabsList
-          variant="line"
-          className="hidden md:flex w-full justify-start rounded-none border-b border-border bg-background px-2 h-10"
-        >
-          <TabsTrigger value="monitor" className="uppercase tracking-wider text-xs font-semibold">
-            Monitor
-          </TabsTrigger>
-          <TabsTrigger value="configure" className="uppercase tracking-wider text-xs font-semibold">
-            Configure
-          </TabsTrigger>
-        </TabsList>
+        {/* Main content */}
+        <main className="flex flex-col flex-1 overflow-hidden">
+          <StatusBar status={status} sessionId={sessionId} />
 
-        {/* Monitor tab */}
-        <TabsContent
-          value="monitor"
-          className="flex-col md:flex-row flex-1 overflow-hidden pb-14 md:pb-0 data-[state=active]:flex"
-        >
-          <section className="flex-1 overflow-y-auto border-b md:border-b-0 md:border-r border-border">
-            <h2 className="sticky top-0 z-10 bg-background px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-dim border-b border-border">
-              Parameters
-            </h2>
-            <ParameterGrid params={params} />
-          </section>
-          <section className="flex-1 overflow-y-auto">
-            <h2 className="sticky top-0 z-10 bg-background px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-dim border-b border-border">
-              Universes
-            </h2>
-            <UniverseList status={status} />
-          </section>
-        </TabsContent>
-
-        {/* Configure tab */}
-        <TabsContent
-          value="configure"
-          className="flex-1 overflow-hidden pb-14 md:pb-0 data-[state=active]:flex"
-        >
-          <ConfigEditor />
-        </TabsContent>
-
-        {/* Mobile tab bar — bottom, fixed, hidden on desktop */}
-        <TabsList
-          variant="line"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex w-full rounded-none border-t border-border bg-surface h-14 px-2"
-        >
-          <TabsTrigger
-            value="monitor"
-            className="flex-1 uppercase tracking-wider text-xs font-semibold"
-          >
-            Monitor
-          </TabsTrigger>
-          <TabsTrigger
-            value="configure"
-            className="flex-1 uppercase tracking-wider text-xs font-semibold"
-          >
-            Configure
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </div>
+          {isMobile ? (
+            /* Mobile: monitor only + config note */
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <MonitorPanel params={params} status={status} />
+              <div className="px-4 py-2 text-center text-text-faint text-xs border-t border-border">
+                Configure on desktop or tablet
+              </div>
+            </div>
+          ) : (
+            /* Desktop/tablet: sidebar-driven content */
+            <div className="flex flex-1 overflow-hidden">
+              {renderContent()}
+            </div>
+          )}
+        </main>
+      </div>
+    </SidebarProvider>
   )
 }
