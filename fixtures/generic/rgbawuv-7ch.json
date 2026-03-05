@@ -1,0 +1,7 @@
+{
+  "name": "Generic RGBAW+UV Par (7ch)",
+  "shortName": "RGBAW+UV 7ch",
+  "manufacturer": "Generic",
+  "channelCount": 7,
+  "channels": ["Dimmer", "Red", "Green", "Blue", "Amber", "White", "UV"]
+}

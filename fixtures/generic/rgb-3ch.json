@@ -1,0 +1,7 @@
+{
+  "name": "Generic RGB Par (3ch)",
+  "shortName": "RGB 3ch",
+  "manufacturer": "Generic",
+  "channelCount": 3,
+  "channels": ["Red", "Green", "Blue"]
+}

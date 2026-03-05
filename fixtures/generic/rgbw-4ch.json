@@ -1,0 +1,7 @@
+{
+  "name": "Generic RGBW Par (4ch)",
+  "shortName": "RGBW 4ch",
+  "manufacturer": "Generic",
+  "channelCount": 4,
+  "channels": ["Red", "Green", "Blue", "White"]
+}
