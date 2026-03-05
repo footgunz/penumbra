@@ -1,3 +1,5 @@
+import { t } from '@lingui/core/macro'
+
 interface Props {
   params: Record<string, number>
 }
@@ -6,7 +8,7 @@ export function ParameterGrid({ params }: Props) {
   const entries = Object.entries(params).sort(([a], [b]) => a.localeCompare(b))
 
   if (entries.length === 0) {
-    return <div className="p-6 text-text-faint text-sm">No parameters received yet.</div>
+    return <div className="p-6 text-text-faint text-sm">{t`No parameters received yet.`}</div>
   }
 
   return (

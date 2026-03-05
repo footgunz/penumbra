@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { t } from '@lingui/core/macro'
 import type { AppConfig, ServerMessage, StatusMessage } from './types'
 import { client } from './ws/client'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -110,14 +111,14 @@ export function App() {
     if (configError) {
       return (
         <div className="flex items-center justify-center flex-1 text-error-text text-sm">
-          Failed to load config: {configError}
+          {t`Failed to load config: ${configError}`}
         </div>
       )
     }
     if (!config) {
       return (
         <div className="flex items-center justify-center flex-1 text-text-muted text-sm">
-          Loading config…
+          {t`Loading config…`}
         </div>
       )
     }
@@ -183,7 +184,7 @@ export function App() {
             <div className="flex flex-col flex-1 overflow-hidden">
               <MonitorPanel params={params} status={status} />
               <div className="px-4 py-2 text-center text-text-faint text-xs border-t border-border">
-                Configure on desktop or tablet
+                {t`Configure on desktop or tablet`}
               </div>
             </div>
           ) : (

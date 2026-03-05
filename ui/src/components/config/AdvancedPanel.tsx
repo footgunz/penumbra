@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { t } from '@lingui/core/macro'
 import CodeMirror, { oneDark } from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
 import { Button } from '@/components/ui/button'
@@ -22,7 +23,7 @@ export function AdvancedPanel({ configJson, onSave }: AdvancedPanelProps) {
     try {
       JSON.parse(value)
     } catch (e) {
-      setErrorMsg('Invalid JSON: ' + (e instanceof Error ? e.message : String(e)))
+      setErrorMsg(t`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`)
       return
     }
 
@@ -37,18 +38,20 @@ export function AdvancedPanel({ configJson, onSave }: AdvancedPanelProps) {
     }
   }, [value, onSave])
 
+  const saveLabel = saveState === 'saving' ? t`Saving…` : saveState === 'saved' ? t`Saved` : t`Save`
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-background">
         <span className="text-xs font-semibold tracking-widest uppercase text-text-dim">
-          Expert config editor
+          {t`Expert config editor`}
         </span>
         <Button
           size="sm"
           disabled={saveState === 'saving'}
           onClick={handleSave}
         >
-          {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
+          {saveLabel}
         </Button>
       </div>
       <div className="flex-1 overflow-auto">

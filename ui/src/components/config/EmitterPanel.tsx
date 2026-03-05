@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro'
 import type { AppConfig } from '@/types'
 
 interface EmitterPanelProps {
@@ -6,9 +7,11 @@ interface EmitterPanelProps {
 }
 
 export function EmitterPanel({ emitter }: EmitterPanelProps) {
+  const idle = emitter?.idle_timeout_s ?? '—'
+  const disconnect = emitter?.disconnect_timeout_s ?? '—'
   return (
     <div className="flex items-center justify-center flex-1 text-text-muted text-sm">
-      Emitter settings — idle timeout: {emitter?.idle_timeout_s ?? '—'}s, disconnect timeout: {emitter?.disconnect_timeout_s ?? '—'}s
+      {t`Emitter settings — idle timeout: ${idle}s, disconnect timeout: ${disconnect}s`}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Fixture } from '@/types'
@@ -20,7 +21,7 @@ export function FixturesPanel() {
   if (error) {
     return (
       <div className="flex items-center justify-center flex-1 text-red-400 text-sm">
-        Failed to load fixtures: {error}
+        {t`Failed to load fixtures: ${error}`}
       </div>
     )
   }

@@ -209,6 +209,22 @@ tasks:
       - task: test
       - task: build
 
+  # ── i18n ─────────────────────────────────────────────────────────────────────
+
+  i18n:extract:
+    desc: Extract i18n messages from UI source into PO catalogs
+    cmds:
+      - pnpm --filter ui i18n:extract
+
+  i18n:compile:
+    desc: Compile PO catalogs into importable TS modules
+    cmds:
+      - pnpm --filter ui i18n:compile
+    sources:
+      - 'ui/src/locales/*/messages.po'
+    generates:
+      - 'ui/src/locales/*/messages.ts'
+
   # ── Fake Emitter ──────────────────────────────────────────────────────────────
 
   fake:

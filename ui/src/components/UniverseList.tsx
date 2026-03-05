@@ -1,3 +1,4 @@
+import { t } from '@lingui/core/macro'
 import type { StatusMessage, UniverseStatus } from '../types'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -11,7 +12,7 @@ export function UniverseList({ status }: Props) {
   const entries = Object.entries(universes) as [string, UniverseStatus][]
 
   if (entries.length === 0) {
-    return <div className="p-4 text-text-faint text-sm">No universes configured.</div>
+    return <div className="p-4 text-text-faint text-sm">{t`No universes configured.`}</div>
   }
 
   const onlineCount = entries.filter(([, u]) => u.online).length
@@ -25,7 +26,7 @@ export function UniverseList({ status }: Props) {
   return (
     <div className="flex flex-col text-sm">
       <div className={cn('px-4 py-2 text-xs font-semibold', summaryColor)}>
-        {onlineCount} / {entries.length} online
+        {t`${onlineCount} / ${entries.length} online`}
       </div>
       {entries.map(([id, u]) => (
         <div key={id} className="border-t border-border">
@@ -36,10 +37,10 @@ export function UniverseList({ status }: Props) {
                 u.online ? 'bg-success text-background' : 'bg-border text-text-muted'
               )}
             >
-              {u.online ? 'online' : 'offline'}
+              {u.online ? t`online` : t`offline`}
             </Badge>
             <span className="text-text-dim">
-              Universe {id}: {u.label}
+              {t`Universe ${id}: ${u.label}`}
             </span>
             <span className="text-text-faint ml-auto">{u.device_ip}</span>
           </div>
@@ -47,9 +48,9 @@ export function UniverseList({ status }: Props) {
             <table className="w-full border-collapse mb-1">
               <thead>
                 <tr className="text-xs text-text-faint">
-                  <th className="text-left font-normal pl-6 pr-2 pb-1 w-12">Ch</th>
-                  <th className="text-left font-normal pr-2 pb-1">Parameter</th>
-                  <th className="text-right font-normal pr-4 pb-1 w-20">DMX</th>
+                  <th className="text-left font-normal pl-6 pr-2 pb-1 w-12">{t`Ch`}</th>
+                  <th className="text-left font-normal pr-2 pb-1">{t`Parameter`}</th>
+                  <th className="text-right font-normal pr-4 pb-1 w-20">{t`DMX`}</th>
                   <th className="text-right font-normal pr-4 pb-1 w-16">%</th>
                 </tr>
               </thead>

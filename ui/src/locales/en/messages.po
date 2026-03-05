@@ -1,0 +1,300 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-03-04 20:08-0500\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. placeholder {0}: entries.length
+#: src/components/UniverseList.tsx:29
+msgid "{onlineCount} / {0} online"
+msgstr "{onlineCount} / {0} online"
+
+#. placeholder {0}: universeCount !== 1 ? 's' : ''
+#: src/components/StatusBar.tsx:53
+msgid "{universeCount} universe{0}"
+msgstr "{universeCount} universe{0}"
+
+#: src/components/StatusBar.tsx:35
+msgid "██ BLACKOUT ACTIVE ██"
+msgstr "██ BLACKOUT ACTIVE ██"
+
+#: src/components/config/UniversesPanel.tsx:160
+msgid "Add universe"
+msgstr "Add universe"
+
+#: src/components/AppSidebar.tsx:47
+#: src/components/ConfigEditor.tsx:79
+msgid "Advanced"
+msgstr "Advanced"
+
+#: src/components/config/UniversesPanel.tsx:231
+#: src/components/config/UniversesPanel.tsx:369
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/components/config/UniversesPanel.tsx:286
+msgid "Cancel delete"
+msgstr "Cancel delete"
+
+#: src/components/UniverseList.tsx:51
+msgid "Ch"
+msgstr "Ch"
+
+#: src/components/AppSidebar.tsx:38
+msgid "Channel Mapping"
+msgstr "Channel Mapping"
+
+#: src/components/ConfigEditor.tsx:62
+msgid "Config editor is available on desktop (768px+)."
+msgstr "Config editor is available on desktop (768px+)."
+
+#: src/components/AppSidebar.tsx:85
+msgid "Configuration"
+msgstr "Configuration"
+
+#: src/App.tsx:187
+msgid "Configure on desktop or tablet"
+msgstr "Configure on desktop or tablet"
+
+#: src/components/config/UniversesPanel.tsx:276
+msgid "Confirm delete"
+msgstr "Confirm delete"
+
+#: src/components/config/UniversesPanel.tsx:104
+msgid "Delete failed"
+msgstr "Delete failed"
+
+#: src/components/config/UniversesPanel.tsx:307
+msgid "Delete universe"
+msgstr "Delete universe"
+
+#: src/components/config/UniversesPanel.tsx:269
+msgid "Delete?"
+msgstr "Delete?"
+
+#: src/components/UniverseList.tsx:53
+msgid "DMX"
+msgstr "DMX"
+
+#: src/components/StatusBar.tsx:60
+msgid "E-Stop"
+msgstr "E-Stop"
+
+#: src/components/config/UniversesPanel.tsx:298
+msgid "Edit universe"
+msgstr "Edit universe"
+
+#: src/components/AppSidebar.tsx:46
+msgid "Emitter"
+msgstr "Emitter"
+
+#: src/components/StatusBar.tsx:14
+msgid "Emitter Connected"
+msgstr "Emitter Connected"
+
+#: src/components/StatusBar.tsx:16
+msgid "Emitter Disconnected"
+msgstr "Emitter Disconnected"
+
+#: src/components/StatusBar.tsx:15
+msgid "Emitter Idle"
+msgstr "Emitter Idle"
+
+#: src/components/config/EmitterPanel.tsx:14
+msgid "Emitter settings — idle timeout: {idle}s, disconnect timeout: {disconnect}s"
+msgstr "Emitter settings — idle timeout: {idle}s, disconnect timeout: {disconnect}s"
+
+#: src/components/config/AdvancedPanel.tsx:47
+msgid "Expert config editor"
+msgstr "Expert config editor"
+
+#: src/App.tsx:114
+msgid "Failed to load config: {configError}"
+msgstr "Failed to load config: {configError}"
+
+#: src/components/ConfigEditor.tsx:45
+msgid "Failed to load config: {error}"
+msgstr "Failed to load config: {error}"
+
+#: src/components/config/FixturesPanel.tsx:24
+msgid "Failed to load fixtures: {error}"
+msgstr "Failed to load fixtures: {error}"
+
+#: src/components/AppSidebar.tsx:37
+msgid "Fixtures"
+msgstr "Fixtures"
+
+#. placeholder {0}: e instanceof Error ? e.message : String(e)
+#: src/components/config/AdvancedPanel.tsx:26
+msgid "Invalid JSON: {0}"
+msgstr "Invalid JSON: {0}"
+
+#: src/components/config/UniversesPanel.tsx:190
+#: src/components/config/UniversesPanel.tsx:328
+msgid "IP"
+msgstr "IP"
+
+#: src/components/config/UniversesPanel.tsx:69
+#: src/components/config/UniversesPanel.tsx:121
+msgid "IP address is required"
+msgstr "IP address is required"
+
+#: src/components/config/UniversesPanel.tsx:196
+#: src/components/config/UniversesPanel.tsx:334
+msgid "Label"
+msgstr "Label"
+
+#: src/components/StatusBar.tsx:51
+msgid "Last seen: {lastSeenStr}"
+msgstr "Last seen: {lastSeenStr}"
+
+#: src/App.tsx:121
+#: src/components/ConfigEditor.tsx:53
+msgid "Loading config…"
+msgstr "Loading config…"
+
+#: src/components/ConfigEditor.tsx:73
+msgid "Mapping"
+msgstr "Mapping"
+
+#: src/components/AppSidebar.tsx:74
+#: src/components/AppSidebar.tsx:77
+msgid "Monitor"
+msgstr "Monitor"
+
+#: src/components/ParameterGrid.tsx:11
+msgid "No parameters received yet."
+msgstr "No parameters received yet."
+
+#: src/components/UniverseList.tsx:15
+msgid "No universes configured."
+msgstr "No universes configured."
+
+#: src/components/config/UniversesPanel.tsx:381
+msgid "No universes configured. Click + to get started."
+msgstr "No universes configured. Click + to get started."
+
+#: src/components/UniverseList.tsx:40
+msgid "offline"
+msgstr "offline"
+
+#: src/components/config/UniversesPanel.tsx:396
+msgid "Offline"
+msgstr "Offline"
+
+#: src/components/UniverseList.tsx:40
+msgid "online"
+msgstr "online"
+
+#: src/components/config/UniversesPanel.tsx:396
+msgid "Online"
+msgstr "Online"
+
+#: src/components/UniverseList.tsx:52
+msgid "Parameter"
+msgstr "Parameter"
+
+#. placeholder {0}: count !== 1 ? 's' : ''
+#: src/components/config/MappingPanel.tsx:13
+msgid "Parameter mapping — {count} parameter{0} mapped"
+msgstr "Parameter mapping — {count} parameter{0} mapped"
+
+#: src/components/MonitorPanel.tsx:16
+msgid "Parameters"
+msgstr "Parameters"
+
+#: src/components/StatusBar.tsx:41
+msgid "Reset"
+msgstr "Reset"
+
+#: src/components/config/AdvancedPanel.tsx:41
+#: src/components/config/UniversesPanel.tsx:234
+#: src/components/config/UniversesPanel.tsx:372
+msgid "Save"
+msgstr "Save"
+
+#: src/components/config/UniversesPanel.tsx:87
+#: src/components/config/UniversesPanel.tsx:138
+msgid "Save failed"
+msgstr "Save failed"
+
+#: src/components/config/AdvancedPanel.tsx:41
+msgid "Saved"
+msgstr "Saved"
+
+#: src/components/config/AdvancedPanel.tsx:41
+msgid "Saving…"
+msgstr "Saving…"
+
+#: src/components/config/ScenesPanel.tsx:6
+msgid "Scene manager — coming soon"
+msgstr "Scene manager — coming soon"
+
+#: src/components/AppSidebar.tsx:40
+msgid "Scenes"
+msgstr "Scenes"
+
+#: src/components/StatusBar.tsx:64
+msgid "session: {sessionId}"
+msgstr "session: {sessionId}"
+
+#: src/components/AppSidebar.tsx:104
+msgid "System"
+msgstr "System"
+
+#: src/components/config/UniversesPanel.tsx:202
+#: src/components/config/UniversesPanel.tsx:340
+msgid "Type"
+msgstr "Type"
+
+#: src/components/config/UniversesPanel.tsx:182
+#: src/components/config/UniversesPanel.tsx:320
+msgid "Universe"
+msgstr "Universe"
+
+#: src/components/config/UniversesPanel.tsx:117
+msgid "Universe {id} already exists"
+msgstr "Universe {id} already exists"
+
+#. placeholder {0}: u.label
+#: src/components/UniverseList.tsx:43
+msgid "Universe {id}: {0}"
+msgstr "Universe {id}: {0}"
+
+#: src/components/config/UniversesPanel.tsx:65
+msgid "Universe {newId} already exists"
+msgstr "Universe {newId} already exists"
+
+#: src/components/config/UniversesPanel.tsx:61
+#: src/components/config/UniversesPanel.tsx:113
+msgid "Universe ID must be a positive number"
+msgstr "Universe ID must be a positive number"
+
+#: src/components/AppSidebar.tsx:36
+#: src/components/ConfigEditor.tsx:70
+#: src/components/MonitorPanel.tsx:22
+msgid "Universes"
+msgstr "Universes"
+
+#. placeholder {0}: entries.length
+#: src/components/config/UniversesPanel.tsx:157
+msgid "Universes ({0})"
+msgstr "Universes ({0})"
+
+#: src/components/AppSidebar.tsx:39
+#: src/components/ConfigEditor.tsx:76
+msgid "Zones"
+msgstr "Zones"
+
+#: src/components/config/ZonesPanel.tsx:6
+msgid "Zones editor — coming soon"
+msgstr "Zones editor — coming soon"
