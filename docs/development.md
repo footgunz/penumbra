@@ -81,6 +81,10 @@ task watch:ui         # run Vite dev server
 task watch:device     # rebuild M4L scripts on save
 
 task fake             # run fake emitter (animated, localhost)
+
+task i18n:extract     # extract UI strings to PO catalogs
+task i18n:compile     # compile PO catalogs to importable TS
+
 task pack             # build + pack .amxd device file
 task release:build    # cross-compile Go for all platforms
 ```
@@ -127,6 +131,49 @@ sshfs user@devmachine:/path/to/penumbra/device/scripts/src/ /local/mount/
 when `dist/main.js` changes.
 
 See [m4l-device.md](m4l-device.md) for M4L internals.
+
+---
+
+## Internationalization (i18n)
+
+UI strings are managed with [LinguiJS](https://lingui.dev) using PO/gettext format.
+
+### Wrapping strings
+
+Use `t` for plain strings and `Trans` for JSX content:
+
+```tsx
+import { t } from '@lingui/core/macro'
+import { Trans } from '@lingui/react/macro'
+
+// Plain strings (attributes, variables, template literals)
+<Button title={t`Save`}>{t`Save`}</Button>
+const msg = t`Universe ${id} already exists`
+
+// JSX content with markup
+<span><Trans>BLACKOUT ACTIVE</Trans></span>
+```
+
+### Extract and compile
+
+After adding or changing strings:
+
+```bash
+task i18n:extract     # scan source → update src/locales/en/messages.po
+task i18n:compile     # compile .po → src/locales/en/messages.ts
+```
+
+Both `messages.po` and `messages.ts` are committed. The `.po` file is the
+source of truth and can be opened in [POEdit](https://poedit.net) or any
+gettext-compatible editor.
+
+### Adding a locale
+
+1. Add the locale code to the `locales` array in `ui/lingui.config.ts`
+2. Run `task i18n:extract` — creates a new `src/locales/<locale>/messages.po`
+3. Translate the `.po` file
+4. Run `task i18n:compile`
+5. Load the new catalog in `ui/src/main.tsx`
 
 ---
 
