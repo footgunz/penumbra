@@ -13,6 +13,7 @@ import (
 	"github.com/footgunz/penumbra/api"
 	"github.com/footgunz/penumbra/config"
 	"github.com/footgunz/penumbra/e131"
+	"github.com/footgunz/penumbra/fixtures"
 	"github.com/footgunz/penumbra/state"
 	"github.com/footgunz/penumbra/tui"
 	"github.com/footgunz/penumbra/udp"
@@ -125,7 +126,8 @@ func main() {
 		}
 	}
 
-	router := api.NewRouter(hub, cfg, wsPort, onConfigUpdate)
+	fixtureStore := fixtures.NewStore()
+	router := api.NewRouter(hub, cfg, fixtureStore, wsPort, onConfigUpdate)
 
 	go hub.RunStatusTicker()
 

@@ -4,11 +4,11 @@ package fixtures
 
 // Fixture represents a single fixture at a single channel count.
 type Fixture struct {
-	Name         string
-	ShortName    string
-	Manufacturer string
-	ChannelCount int
-	Channels     []string
+	Name         string   `json:"name"`
+	ShortName    string   `json:"shortName"`
+	Manufacturer string   `json:"manufacturer"`
+	ChannelCount int      `json:"channelCount"`
+	Channels     []string `json:"channels"`
 }
 
 // Library maps fixture keys (e.g. "generic/rgb-3ch") to their definitions.
