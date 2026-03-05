@@ -47,6 +47,9 @@ func (p *Prober) Run() {
 
 func (p *Prober) probeAll() {
 	for id, u := range p.cfg.Universes {
+		if u.Type != "wled" {
+			continue
+		}
 		online := p.probe(u.DeviceIP)
 		was, seen := p.online[id]
 		if !seen || was != online {

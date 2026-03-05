@@ -82,7 +82,9 @@ export function ConfigEditor() {
           <TabsContent value="universes" className="flex-1 overflow-hidden data-[state=active]:flex">
             <UniversesPanel
               universes={config.universes}
+              status={null}
               onChange={(universes) => setConfig({ ...config, universes })}
+              onSave={(universes) => saveConfig({ ...config, universes })}
             />
           </TabsContent>
 

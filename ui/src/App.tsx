@@ -127,7 +127,9 @@ export function App() {
         return (
           <UniversesPanel
             universes={config.universes}
+            status={status}
             onChange={(universes) => setConfig({ ...config, universes })}
+            onSave={(universes) => saveConfig({ ...config, universes })}
           />
         )
       case 'fixtures':

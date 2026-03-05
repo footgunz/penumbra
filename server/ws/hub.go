@@ -254,6 +254,7 @@ func (h *Hub) buildStatusMessage() []byte {
 	type universeStatus struct {
 		Label    string        `json:"label"`
 		DeviceIP string        `json:"device_ip"`
+		Type     string        `json:"type"`
 		Online   bool          `json:"online"`
 		Channels []channelInfo `json:"channels"`
 	}
@@ -286,6 +287,7 @@ func (h *Hub) buildStatusMessage() []byte {
 		universes[id] = universeStatus{
 			Label:    u.Label,
 			DeviceIP: u.DeviceIP,
+			Type:     u.Type,
 			Online:   universeOnline[id],
 			Channels: channels,
 		}
