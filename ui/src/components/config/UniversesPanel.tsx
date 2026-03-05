@@ -17,6 +17,7 @@ interface EditState {
   id: string
   device_ip: string
   label: string
+  type: 'wled' | 'gateway'
 }
 
 interface AddState {
@@ -40,7 +41,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
 
   function startEdit(id: string, u: UniverseConfig) {
     setEditingId(id)
-    setEditState({ id, device_ip: u.device_ip, label: u.label })
+    setEditState({ id, device_ip: u.device_ip, label: u.label, type: u.type as 'wled' | 'gateway' })
     setAdding(false)
     setConfirmDeleteId(null)
     setError(null)
@@ -73,7 +74,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
     if (newId !== editingId) {
       delete updated[editingId]
     }
-    updated[newId] = { ...existing, device_ip: editState.device_ip.trim(), label: editState.label.trim() }
+    updated[newId] = { ...existing, device_ip: editState.device_ip.trim(), label: editState.label.trim(), type: editState.type }
     onChange(updated)
 
     setSaving(true)
@@ -190,15 +191,40 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                     value={editState.device_ip}
                     onChange={(e) => setEditState({ ...editState, device_ip: e.target.value })}
                     className="h-8 text-sm font-mono"
-                    placeholder="192.168.1.100"
                   />
                   <label className="text-text-faint text-xs">Label</label>
                   <Input
                     value={editState.label}
                     onChange={(e) => setEditState({ ...editState, label: e.target.value })}
                     className="h-8 text-sm"
-                    placeholder="stage left"
                   />
+                  <label className="text-text-faint text-xs">Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className={cn(
+                        'px-3 py-1 text-xs rounded border',
+                        editState.type === 'wled'
+                          ? 'bg-accent/20 text-accent border-accent/30'
+                          : 'bg-surface text-text-muted border-border hover:border-border-muted'
+                      )}
+                      onClick={() => setEditState({ ...editState, type: 'wled' })}
+                    >
+                      WLED
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        'px-3 py-1 text-xs rounded border',
+                        editState.type === 'gateway'
+                          ? 'bg-accent/20 text-accent border-accent/30'
+                          : 'bg-surface text-text-muted border-border hover:border-border-muted'
+                      )}
+                      onClick={() => setEditState({ ...editState, type: 'gateway' })}
+                    >
+                      Gateway
+                    </button>
+                  </div>
                 </div>
                 <div className="flex gap-1 mt-3 justify-end">
                   <Button variant="outline" size="icon" className="h-7 w-7" onClick={cancelEdit} disabled={saving} title="Cancel">
@@ -297,21 +323,18 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
                 value={addState.id}
                 onChange={(e) => setAddState({ ...addState, id: e.target.value })}
                 className="h-8 text-sm"
-                placeholder="3"
               />
               <label className="text-text-faint text-xs">IP</label>
               <Input
                 value={addState.device_ip}
                 onChange={(e) => setAddState({ ...addState, device_ip: e.target.value })}
                 className="h-8 text-sm font-mono"
-                placeholder="192.168.1.103"
               />
               <label className="text-text-faint text-xs">Label</label>
               <Input
                 value={addState.label}
                 onChange={(e) => setAddState({ ...addState, label: e.target.value })}
                 className="h-8 text-sm"
-                placeholder="floor wash"
               />
               <label className="text-text-faint text-xs">Type</label>
               <div className="flex gap-2">
