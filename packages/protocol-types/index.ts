@@ -57,11 +57,18 @@ export type ServerMessage = SessionMessage | StateMessage | DiffMessage | Status
 
 // ─── UI → Server ──────────────────────────────────────────────────────────────
 
+export interface Patch {
+  fixtureKey: string
+  label: string
+  startAddress: number
+  channels?: string[]  // only for fixtureKey === "manual"
+}
+
 export interface UniverseConfig {
   device_ip: string
   type: 'wled' | 'gateway'
   label: string
-  channels?: Record<string, string>
+  patches?: Patch[]
 }
 
 export interface ParameterConfig {

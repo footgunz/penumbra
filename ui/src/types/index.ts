@@ -2,6 +2,7 @@
 import type {
   UniverseConfig,
   ParameterConfig,
+  Patch,
 } from '@penumbra/protocol-types'
 
 export type {
@@ -13,6 +14,7 @@ export type {
   ServerMessage,
   UniverseConfig,
   ParameterConfig,
+  Patch,
   SetConfigMessage,
   HotkeyMessage,
   UIMessage,
