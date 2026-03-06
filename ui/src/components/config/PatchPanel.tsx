@@ -185,9 +185,12 @@ export function PatchPanel({ universeId, universe, onSave }: PatchPanelProps) {
         />
       )}
 
-      {/* Patch list */}
+      {/* Patch list — sorted by start address */}
       <div className="flex flex-col gap-2">
-        {patches.map((patch, index) => {
+        {[...patches]
+          .map((patch, index) => ({ patch, index }))
+          .sort((a, b) => a.patch.startAddress - b.patch.startAddress)
+          .map(({ patch, index }) => {
           const channelCount = getChannelCount(patch, fixtures)
           const endAddress = patch.startAddress + channelCount - 1
           const shortName = getFixtureShortName(patch.fixtureKey)
