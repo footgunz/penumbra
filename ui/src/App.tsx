@@ -81,7 +81,11 @@ export function App() {
         if (!r.ok) throw new Error(`fetch failed: ${r.status}`)
         return r.json()
       })
-      .then((data: AppConfig) => setConfig(data))
+      .then((data: AppConfig) => {
+        setConfig(data)
+        const keys = Object.keys(data.universes ?? {}).sort((a, b) => Number(a) - Number(b))
+        if (keys.length > 0) setSelectedUniverse(keys[0])
+      })
       .catch((e: Error) => setConfigError(e.message))
   }, [])
 
