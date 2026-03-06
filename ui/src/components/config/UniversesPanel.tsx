@@ -12,6 +12,8 @@ interface UniversesPanelProps {
   status: StatusMessage | null
   onChange: (universes: Record<string, UniverseConfig>) => void
   onSave: (universes: Record<string, UniverseConfig>) => Promise<void>
+  selectedUniverse: string | null
+  onSelectUniverse: (id: string | null) => void
 }
 
 interface EditState {
@@ -28,7 +30,7 @@ interface AddState {
   type: 'wled' | 'gateway'
 }
 
-export function UniversesPanel({ universes, status, onChange, onSave }: UniversesPanelProps) {
+export function UniversesPanel({ universes, status, onChange, onSave, selectedUniverse, onSelectUniverse }: UniversesPanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editState, setEditState] = useState<EditState | null>(null)
   const [adding, setAdding] = useState(false)
@@ -151,7 +153,7 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
   }
 
   return (
-    <div className="flex-1 overflow-auto p-4">
+    <div className="w-80 shrink-0 overflow-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-text-muted">
           {t`Universes (${entries.length})`}
@@ -242,7 +244,13 @@ export function UniversesPanel({ universes, status, onChange, onSave }: Universe
           return (
             <div
               key={id}
-              className="rounded border border-border bg-surface p-3 flex items-center gap-3"
+              className={cn(
+                'rounded border p-3 flex items-center gap-3 cursor-pointer transition-colors',
+                selectedUniverse === id
+                  ? 'border-accent/60 bg-accent/5'
+                  : 'border-border bg-surface hover:border-border-muted',
+              )}
+              onClick={() => onSelectUniverse(selectedUniverse === id ? null : id)}
             >
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="text-text font-semibold tabular-nums shrink-0">#{id}</span>

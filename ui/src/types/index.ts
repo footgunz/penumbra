@@ -13,6 +13,7 @@ export type {
   ServerMessage,
   UniverseConfig,
   ParameterConfig,
+  Patch,
   SetConfigMessage,
   HotkeyMessage,
   UIMessage,
