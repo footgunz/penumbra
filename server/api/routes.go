@@ -121,6 +121,22 @@ func NewRouter(hub *ws.Hub, cfg *config.Config, fixtureStore *fixtures.Store, po
 			if update.Parameters != nil {
 				cfg.Parameters = update.Parameters
 			}
+			// Validate patches in each universe
+			for uid, u := range cfg.Universes {
+				if len(u.Patches) > 0 {
+					resolver := func(key string) int {
+						f, ok := fixtureStore.Get(key)
+						if !ok {
+							return 0
+						}
+						return f.ChannelCount
+					}
+					if err := config.ValidatePatches(u.Patches, resolver); err != nil {
+						http.Error(w, fmt.Sprintf("universe %d: %v", uid, err), http.StatusBadRequest)
+						return
+					}
+				}
+			}
 			if err := cfg.Save(); err != nil {
 				log.Printf("api: config save: %v", err)
 				http.Error(w, "save error", http.StatusInternalServerError)

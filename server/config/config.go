@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 )
@@ -42,15 +43,25 @@ func (s EmitterState) String() string {
 	}
 }
 
+// Patch represents a fixture assigned to a contiguous range of DMX channels
+// within a universe. Library fixtures reference a key in the fixture store;
+// manual fixtures carry their own channel names.
+type Patch struct {
+	FixtureKey   string   `json:"fixtureKey"`
+	Label        string   `json:"label"`
+	StartAddress int      `json:"startAddress"`
+	Channels     []string `json:"channels,omitempty"` // only for fixtureKey == "manual"
+}
+
 // UniverseConfig maps a universe number (integer key) to its WLED device IP and label.
 // DeviceIP is the unicast LAN address used for HTTP health probing — not the E1.31
 // multicast destination, which is derived from the universe number directly.
 // Type is "wled" or "gateway" — the WLED prober only probes "wled" devices.
 type UniverseConfig struct {
-	DeviceIP string            `json:"device_ip"`
-	Type     string            `json:"type"`
-	Label    string            `json:"label"`
-	Channels map[string]string `json:"channels,omitempty"`
+	DeviceIP string  `json:"device_ip"`
+	Type     string  `json:"type"`
+	Label    string  `json:"label"`
+	Patches  []Patch `json:"patches,omitempty"`
 }
 
 // ChannelTarget identifies a single DMX channel within a universe.
@@ -102,6 +113,35 @@ func cwd() string {
 		return "?"
 	}
 	return dir
+}
+
+// ChannelCountResolver returns the channel count for a fixture key.
+type ChannelCountResolver func(key string) int
+
+// ValidatePatches checks that no two patches in a universe overlap
+// and that all patches fit within the 512-channel DMX range.
+func ValidatePatches(patches []Patch, resolve ChannelCountResolver) error {
+	occupied := make(map[int]string) // channel -> patch label
+	for _, p := range patches {
+		count := len(p.Channels)
+		if p.FixtureKey != "manual" {
+			count = resolve(p.FixtureKey)
+		}
+		if count == 0 {
+			return fmt.Errorf("fixture %q has 0 channels", p.Label)
+		}
+		end := p.StartAddress + count - 1
+		if p.StartAddress < 1 || end > 512 {
+			return fmt.Errorf("fixture %q (address %d-%d) exceeds DMX range 1-512", p.Label, p.StartAddress, end)
+		}
+		for ch := p.StartAddress; ch <= end; ch++ {
+			if owner, exists := occupied[ch]; exists {
+				return fmt.Errorf("channel %d: conflict between %q and %q", ch, owner, p.Label)
+			}
+			occupied[ch] = p.Label
+		}
+	}
+	return nil
 }
 
 // Save writes the config back to the file it was loaded from.
