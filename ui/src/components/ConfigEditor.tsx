@@ -10,6 +10,7 @@ import { AdvancedPanel } from './config/AdvancedPanel'
 export function ConfigEditor() {
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedUniverse, setSelectedUniverse] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/config')
@@ -86,6 +87,8 @@ export function ConfigEditor() {
               status={null}
               onChange={(universes) => setConfig({ ...config, universes })}
               onSave={(universes) => saveConfig({ ...config, universes })}
+              selectedUniverse={selectedUniverse}
+              onSelectUniverse={setSelectedUniverse}
             />
           </TabsContent>
 
