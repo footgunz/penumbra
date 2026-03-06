@@ -164,8 +164,9 @@ export function App() {
       case 'mapping':
         return (
           <MappingPanel
+            params={params}
             parameters={config.parameters}
-            onChange={(parameters) => setConfig({ ...config, parameters })}
+            universes={config.universes}
           />
         )
       case 'zones':
