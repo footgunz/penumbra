@@ -18,6 +18,15 @@ msgstr ""
 msgid "\"{0}\" exceeds DMX address range (1-512)"
 msgstr "\"{0}\" exceeds DMX address range (1-512)"
 
+#. placeholder {0}: paramNames.length - mappedCount
+#: src/components/config/MappingPanel.tsx:116
+msgid "{0} unmapped"
+msgstr "{0} unmapped"
+
+#: src/components/config/MappingPanel.tsx:112
+msgid "{mappedCount} mapped"
+msgstr "{mappedCount} mapped"
+
 #. placeholder {0}: entries.length
 #: src/components/UniverseList.tsx:29
 msgid "{onlineCount} / {0} online"
@@ -41,22 +50,22 @@ msgid "Add universe"
 msgstr "Add universe"
 
 #: src/components/AppSidebar.tsx:47
-#: src/components/ConfigEditor.tsx:80
 msgid "Advanced"
 msgstr "Advanced"
 
 #: src/components/config/FixturePicker.tsx:60
-#: src/components/config/PatchPanel.tsx:245
+#: src/components/config/PatchPanel.tsx:248
 #: src/components/config/UniversesPanel.tsx:233
 #: src/components/config/UniversesPanel.tsx:377
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/components/config/PatchPanel.tsx:300
+#: src/components/config/PatchPanel.tsx:303
 #: src/components/config/UniversesPanel.tsx:294
 msgid "Cancel delete"
 msgstr "Cancel delete"
 
+#: src/components/config/MappingPanel.tsx:127
 #: src/components/UniverseList.tsx:51
 msgid "Ch"
 msgstr "Ch"
@@ -79,23 +88,23 @@ msgid "Channel Mapping"
 msgstr "Channel Mapping"
 
 #: src/components/config/FixturePicker.tsx:86
-#: src/components/config/PatchPanel.tsx:220
+#: src/components/config/PatchPanel.tsx:223
 msgid "Channels"
 msgstr "Channels"
 
 #: src/components/ConfigEditor.tsx:63
-msgid "Config editor is available on desktop (768px+)."
-msgstr "Config editor is available on desktop (768px+)."
+#~ msgid "Config editor is available on desktop (768px+)."
+#~ msgstr "Config editor is available on desktop (768px+)."
 
 #: src/components/AppSidebar.tsx:85
 msgid "Configuration"
 msgstr "Configuration"
 
-#: src/App.tsx:209
+#: src/App.tsx:214
 msgid "Configure on desktop or tablet"
 msgstr "Configure on desktop or tablet"
 
-#: src/components/config/PatchPanel.tsx:290
+#: src/components/config/PatchPanel.tsx:293
 #: src/components/config/UniversesPanel.tsx:284
 msgid "Confirm delete"
 msgstr "Confirm delete"
@@ -108,7 +117,7 @@ msgstr "Create"
 msgid "Delete failed"
 msgstr "Delete failed"
 
-#: src/components/config/PatchPanel.tsx:326
+#: src/components/config/PatchPanel.tsx:329
 msgid "Delete patch"
 msgstr "Delete patch"
 
@@ -116,7 +125,7 @@ msgstr "Delete patch"
 msgid "Delete universe"
 msgstr "Delete universe"
 
-#: src/components/config/PatchPanel.tsx:283
+#: src/components/config/PatchPanel.tsx:286
 #: src/components/config/UniversesPanel.tsx:277
 msgid "Delete?"
 msgstr "Delete?"
@@ -129,7 +138,7 @@ msgstr "DMX"
 msgid "E-Stop"
 msgstr "E-Stop"
 
-#: src/components/config/PatchPanel.tsx:312
+#: src/components/config/PatchPanel.tsx:315
 msgid "Edit patch"
 msgstr "Edit patch"
 
@@ -153,6 +162,11 @@ msgstr "Emitter Disconnected"
 msgid "Emitter Idle"
 msgstr "Emitter Idle"
 
+#. placeholder {0}: paramNames.length
+#: src/components/config/MappingPanel.tsx:109
+msgid "Emitter Parameters ({0})"
+msgstr "Emitter Parameters ({0})"
+
 #: src/components/config/EmitterPanel.tsx:14
 msgid "Emitter settings — idle timeout: {idle}s, disconnect timeout: {disconnect}s"
 msgstr "Emitter settings — idle timeout: {idle}s, disconnect timeout: {disconnect}s"
@@ -161,17 +175,21 @@ msgstr "Emitter settings — idle timeout: {idle}s, disconnect timeout: {disconn
 msgid "Expert config editor"
 msgstr "Expert config editor"
 
-#: src/App.tsx:116
+#: src/App.tsx:120
 msgid "Failed to load config: {configError}"
 msgstr "Failed to load config: {configError}"
 
 #: src/components/ConfigEditor.tsx:46
-msgid "Failed to load config: {error}"
-msgstr "Failed to load config: {error}"
+#~ msgid "Failed to load config: {error}"
+#~ msgstr "Failed to load config: {error}"
 
 #: src/components/config/FixturesPanel.tsx:24
 msgid "Failed to load fixtures: {error}"
 msgstr "Failed to load fixtures: {error}"
+
+#: src/components/config/MappingPanel.tsx:128
+msgid "Fixture / Channel"
+msgstr "Fixture / Channel"
 
 #: src/components/AppSidebar.tsx:37
 msgid "Fixtures"
@@ -192,7 +210,7 @@ msgstr "IP"
 msgid "IP address is required"
 msgstr "IP address is required"
 
-#: src/components/config/PatchPanel.tsx:201
+#: src/components/config/PatchPanel.tsx:204
 #: src/components/config/UniversesPanel.tsx:198
 #: src/components/config/UniversesPanel.tsx:342
 msgid "Label"
@@ -206,8 +224,7 @@ msgstr "Last seen: {lastSeenStr}"
 msgid "Library"
 msgstr "Library"
 
-#: src/App.tsx:123
-#: src/components/ConfigEditor.tsx:54
+#: src/App.tsx:127
 msgid "Loading config…"
 msgstr "Loading config…"
 
@@ -221,21 +238,29 @@ msgid "Manual"
 msgstr "Manual"
 
 #: src/components/ConfigEditor.tsx:74
-msgid "Mapping"
-msgstr "Mapping"
+#~ msgid "Mapping"
+#~ msgstr "Mapping"
 
 #: src/components/AppSidebar.tsx:74
 #: src/components/AppSidebar.tsx:77
 msgid "Monitor"
 msgstr "Monitor"
 
-#: src/components/config/PatchPanel.tsx:338
+#: src/components/config/MappingPanel.tsx:165
+msgid "no fixture at this address"
+msgstr "no fixture at this address"
+
+#: src/components/config/PatchPanel.tsx:341
 msgid "No fixtures assigned. Click \"Add Fixture\" to get started."
 msgstr "No fixtures assigned. Click \"Add Fixture\" to get started."
 
 #: src/components/config/FixturePicker.tsx:137
 msgid "No fixtures found"
 msgstr "No fixtures found"
+
+#: src/components/config/MappingPanel.tsx:94
+msgid "No parameters received from emitter."
+msgstr "No parameters received from emitter."
 
 #: src/components/ParameterGrid.tsx:11
 msgid "No parameters received yet."
@@ -272,14 +297,14 @@ msgstr "Online"
 msgid "Overlap at channel {0}: \"{1}\" and \"{2}\""
 msgstr "Overlap at channel {0}: \"{1}\" and \"{2}\""
 
+#: src/components/config/MappingPanel.tsx:124
 #: src/components/UniverseList.tsx:52
 msgid "Parameter"
 msgstr "Parameter"
 
-#. placeholder {0}: count !== 1 ? 's' : ''
 #: src/components/config/MappingPanel.tsx:13
-msgid "Parameter mapping — {count} parameter{0} mapped"
-msgstr "Parameter mapping — {count} parameter{0} mapped"
+#~ msgid "Parameter mapping — {count} parameter{0} mapped"
+#~ msgstr "Parameter mapping — {count} parameter{0} mapped"
 
 #: src/components/MonitorPanel.tsx:16
 msgid "Parameters"
@@ -294,7 +319,7 @@ msgid "Reset"
 msgstr "Reset"
 
 #: src/components/config/AdvancedPanel.tsx:41
-#: src/components/config/PatchPanel.tsx:255
+#: src/components/config/PatchPanel.tsx:258
 #: src/components/config/UniversesPanel.tsx:236
 #: src/components/config/UniversesPanel.tsx:380
 msgid "Save"
@@ -330,7 +355,7 @@ msgstr "Search fixtures..."
 msgid "session: {sessionId}"
 msgstr "session: {sessionId}"
 
-#: src/components/config/PatchPanel.tsx:207
+#: src/components/config/PatchPanel.tsx:210
 msgid "Start Address"
 msgstr "Start Address"
 
@@ -342,6 +367,10 @@ msgstr "System"
 #: src/components/config/UniversesPanel.tsx:348
 msgid "Type"
 msgstr "Type"
+
+#: src/components/config/MappingPanel.tsx:126
+msgid "Univ"
+msgstr "Univ"
 
 #: src/components/config/UniversesPanel.tsx:184
 #: src/components/config/UniversesPanel.tsx:328
@@ -367,7 +396,6 @@ msgid "Universe ID must be a positive number"
 msgstr "Universe ID must be a positive number"
 
 #: src/components/AppSidebar.tsx:36
-#: src/components/ConfigEditor.tsx:71
 #: src/components/MonitorPanel.tsx:22
 msgid "Universes"
 msgstr "Universes"
@@ -377,8 +405,11 @@ msgstr "Universes"
 msgid "Universes ({0})"
 msgstr "Universes ({0})"
 
+#: src/components/config/MappingPanel.tsx:125
+msgid "Value"
+msgstr "Value"
+
 #: src/components/AppSidebar.tsx:39
-#: src/components/ConfigEditor.tsx:77
 msgid "Zones"
 msgstr "Zones"
 
