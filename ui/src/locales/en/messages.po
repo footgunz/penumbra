@@ -19,11 +19,11 @@ msgid "\"{0}\" exceeds DMX address range (1-512)"
 msgstr "\"{0}\" exceeds DMX address range (1-512)"
 
 #. placeholder {0}: paramNames.length - mappedCount
-#: src/components/config/MappingPanel.tsx:118
+#: src/components/config/MappingPanel.tsx:142
 msgid "{0} unmapped"
 msgstr "{0} unmapped"
 
-#: src/components/config/MappingPanel.tsx:114
+#: src/components/config/MappingPanel.tsx:138
 msgid "{mappedCount} mapped"
 msgstr "{mappedCount} mapped"
 
@@ -53,6 +53,11 @@ msgstr "Add universe"
 msgid "Advanced"
 msgstr "Advanced"
 
+#. placeholder {0}: selected.size
+#: src/components/config/MappingPanel.tsx:150
+msgid "Assign {0} to fixture..."
+msgstr "Assign {0} to fixture..."
+
 #: src/components/config/FixturePicker.tsx:60
 #: src/components/config/PatchPanel.tsx:248
 #: src/components/config/UniversesPanel.tsx:233
@@ -65,7 +70,7 @@ msgstr "Cancel"
 msgid "Cancel delete"
 msgstr "Cancel delete"
 
-#: src/components/config/MappingPanel.tsx:129
+#: src/components/config/MappingPanel.tsx:161
 #: src/components/UniverseList.tsx:51
 msgid "Ch"
 msgstr "Ch"
@@ -100,7 +105,7 @@ msgstr "Channels"
 msgid "Configuration"
 msgstr "Configuration"
 
-#: src/App.tsx:214
+#: src/App.tsx:217
 msgid "Configure on desktop or tablet"
 msgstr "Configure on desktop or tablet"
 
@@ -163,7 +168,7 @@ msgid "Emitter Idle"
 msgstr "Emitter Idle"
 
 #. placeholder {0}: paramNames.length
-#: src/components/config/MappingPanel.tsx:111
+#: src/components/config/MappingPanel.tsx:135
 msgid "Emitter Parameters ({0})"
 msgstr "Emitter Parameters ({0})"
 
@@ -187,7 +192,7 @@ msgstr "Failed to load config: {configError}"
 msgid "Failed to load fixtures: {error}"
 msgstr "Failed to load fixtures: {error}"
 
-#: src/components/config/MappingPanel.tsx:130
+#: src/components/config/MappingPanel.tsx:162
 msgid "Fixture / Channel"
 msgstr "Fixture / Channel"
 
@@ -246,7 +251,7 @@ msgstr "Manual"
 msgid "Monitor"
 msgstr "Monitor"
 
-#: src/components/config/MappingPanel.tsx:184
+#: src/components/config/MappingPanel.tsx:243
 msgid "no fixture at this address"
 msgstr "no fixture at this address"
 
@@ -258,7 +263,7 @@ msgstr "No fixtures assigned. Click \"Add Fixture\" to get started."
 msgid "No fixtures found"
 msgstr "No fixtures found"
 
-#: src/components/config/MappingPanel.tsx:95
+#: src/components/config/MappingPanel.tsx:119
 msgid "No parameters received from emitter."
 msgstr "No parameters received from emitter."
 
@@ -297,7 +302,7 @@ msgstr "Online"
 msgid "Overlap at channel {0}: \"{1}\" and \"{2}\""
 msgstr "Overlap at channel {0}: \"{1}\" and \"{2}\""
 
-#: src/components/config/MappingPanel.tsx:126
+#: src/components/config/MappingPanel.tsx:158
 #: src/components/UniverseList.tsx:52
 msgid "Parameter"
 msgstr "Parameter"
@@ -368,7 +373,7 @@ msgstr "System"
 msgid "Type"
 msgstr "Type"
 
-#: src/components/config/MappingPanel.tsx:128
+#: src/components/config/MappingPanel.tsx:160
 msgid "Univ"
 msgstr "Univ"
 
@@ -405,7 +410,7 @@ msgstr "Universes"
 msgid "Universes ({0})"
 msgstr "Universes ({0})"
 
-#: src/components/config/MappingPanel.tsx:127
+#: src/components/config/MappingPanel.tsx:159
 msgid "Value"
 msgstr "Value"
 

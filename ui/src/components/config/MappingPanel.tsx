@@ -10,6 +10,7 @@ interface MappingPanelProps {
   params: Record<string, number>
   parameters: Record<string, ParameterConfig>
   universes: Record<string, UniverseConfig>
+  onSave: (parameters: Record<string, ParameterConfig>) => Promise<void>
 }
 
 interface ResolvedMapping {
@@ -77,8 +78,31 @@ function resolveMapping(
   return base
 }
 
-export function MappingPanel({ params, parameters, universes }: MappingPanelProps) {
+export function MappingPanel({ params, parameters, universes, onSave }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  function toggleParam(name: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  function selectGroup(group: { channels: string[] }) {
+    setSelected((prev) => {
+      const allSelected = group.channels.every((c) => prev.has(c))
+      const next = new Set(prev)
+      if (allSelected) {
+        group.channels.forEach((c) => next.delete(c))
+      } else {
+        group.channels.forEach((c) => next.add(c))
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     fetch('/api/fixtures')
@@ -118,6 +142,14 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
             {t`${paramNames.length - mappedCount} unmapped`}
           </Badge>
         )}
+        {selected.size > 0 && (
+          <button
+            className="ml-auto text-xs bg-accent text-accent-foreground px-3 py-1 rounded hover:bg-accent/80"
+            onClick={() => {/* Task 6 wires this up */}}
+          >
+            {t`Assign ${selected.size} to fixture...`}
+          </button>
+        )}
       </div>
 
       <table className="w-full text-sm">
@@ -134,8 +166,17 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
           {groups.map((g) => (
             <Fragment key={g.group ?? '__ungrouped'}>
               {g.group && (
-                <tr className="bg-surface-raised/50">
+                <tr
+                  className="bg-surface-raised/50 cursor-pointer hover:bg-surface-raised"
+                  onClick={() => selectGroup(g)}
+                >
                   <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
+                    <input
+                      type="checkbox"
+                      className="mr-2 align-middle"
+                      checked={g.channels.every((c) => selected.has(c))}
+                      readOnly
+                    />
                     {g.group}
                   </td>
                 </tr>
@@ -148,15 +189,33 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
                   <tr
                     key={row.paramName}
                     className={cn(
-                      'border-b border-border/50',
+                      'border-b border-border/50 cursor-pointer hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
+                      selected.has(row.paramName) && 'bg-accent/10',
                     )}
+                    onClick={() => toggleParam(row.paramName)}
                   >
                     <td className="py-1.5 font-mono text-xs">
                       {g.group ? (
-                        <span className="pl-3">{channel}</span>
+                        <span className="pl-3">
+                          <input
+                            type="checkbox"
+                            className="mr-2 align-middle"
+                            checked={selected.has(row.paramName)}
+                            readOnly
+                          />
+                          {channel}
+                        </span>
                       ) : (
-                        row.paramName
+                        <>
+                          <input
+                            type="checkbox"
+                            className="mr-2 align-middle"
+                            checked={selected.has(row.paramName)}
+                            readOnly
+                          />
+                          {row.paramName}
+                        </>
                       )}
                     </td>
                     <td className="py-1.5 text-right font-mono text-xs tabular-nums">
