@@ -93,36 +93,34 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
   } | null>(null)
   const dragImageRef = useRef<HTMLDivElement | null>(null)
 
-  const buildDragImage = useCallback((e: React.DragEvent, channelNames: string[]) => {
-    // Remove previous drag image if any
+  const buildDragImage = useCallback((e: React.DragEvent, count: number) => {
     if (dragImageRef.current) {
       document.body.removeChild(dragImageRef.current)
     }
-    const ghost = document.createElement('div')
-    ghost.style.display = 'flex'
-    ghost.style.gap = '2px'
-    ghost.style.position = 'absolute'
-    ghost.style.top = '-9999px'
-    ghost.style.left = '-9999px'
-    for (const name of channelNames) {
-      const cell = document.createElement('div')
-      cell.textContent = name
-      cell.style.width = '48px'
-      cell.style.height = '48px'
-      cell.style.border = '2px dashed rgb(167, 139, 250)'
-      cell.style.borderRadius = '4px'
-      cell.style.display = 'flex'
-      cell.style.alignItems = 'center'
-      cell.style.justifyContent = 'center'
-      cell.style.fontSize = '9px'
-      cell.style.fontFamily = 'monospace'
-      cell.style.color = 'rgb(196, 181, 253)'
-      cell.style.background = 'rgba(139, 92, 246, 0.25)'
-      ghost.appendChild(cell)
+    const canvas = document.createElement('canvas')
+    const size = 48
+    const gap = 2
+    canvas.width = count * size + (count - 1) * gap
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = 'rgb(167, 139, 250)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 3])
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.25)'
+    for (let i = 0; i < count; i++) {
+      const x = i * (size + gap)
+      ctx.fillRect(x, 0, size, size)
+      ctx.strokeRect(x + 1, 1, size - 2, size - 2)
     }
-    document.body.appendChild(ghost)
-    dragImageRef.current = ghost
-    e.dataTransfer.setDragImage(ghost, 24, 24)
+    // Wrap canvas in a div positioned offscreen
+    const wrapper = document.createElement('div')
+    wrapper.style.position = 'absolute'
+    wrapper.style.top = '-9999px'
+    wrapper.style.left = '-9999px'
+    wrapper.appendChild(canvas)
+    document.body.appendChild(wrapper)
+    dragImageRef.current = wrapper
+    e.dataTransfer.setDragImage(canvas, 24, 24)
   }, [])
 
   // Cleanup drag image on unmount
@@ -279,8 +277,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
                       e.dataTransfer.effectAllowed = 'copy'
-                      const channelNames = g.channels.map((n) => parseParam(n).channel)
-                      buildDragImage(e, channelNames)
+                      buildDragImage(e, g.channels.length)
                       setDragging(new Set(g.channels))
                       setDraggedParams(g.channels)
                     }}
@@ -331,7 +328,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: [row.paramName] }))
                       e.dataTransfer.effectAllowed = 'copy'
-                      buildDragImage(e, [parseParam(row.paramName).channel])
+                      buildDragImage(e, 1)
                       setDragging(new Set([row.paramName]))
                       setDraggedParams([row.paramName])
                     }}
