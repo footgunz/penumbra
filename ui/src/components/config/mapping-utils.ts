@@ -1,3 +1,59 @@
+import type { UniverseConfig, ParameterConfig, Fixture } from '@/types'
+import { getChannelCount, getChannelNames } from './patch-utils'
+
+export interface ChannelState {
+  state: 'mapped' | 'unmapped'
+  patchIndex: number
+  channelName: string
+  patchLabel: string
+  fixtureKey: string
+}
+
+/**
+ * Build a map of "universeId:dmxChannel" -> ChannelState for all patched channels.
+ * Channels not in the map are "empty" (no fixture patch covers them).
+ */
+export function resolveChannelStates(
+  universes: Record<string, UniverseConfig>,
+  parameters: Record<string, ParameterConfig>,
+  fixtures: Record<string, Fixture> | null,
+): Map<string, ChannelState> {
+  // Build a set of all mapped (universe, channel) pairs from parameters
+  const mappedSet = new Set<string>()
+  for (const raw of Object.values(parameters)) {
+    const targets = Array.isArray(raw) ? raw : [raw]
+    for (const t of targets) {
+      if (t && typeof t === 'object' && 'universe' in t && 'channel' in t) {
+        mappedSet.add(`${t.universe}:${t.channel}`)
+      }
+    }
+  }
+
+  const result = new Map<string, ChannelState>()
+
+  for (const [uid, uConfig] of Object.entries(universes)) {
+    for (let pi = 0; pi < (uConfig.patches ?? []).length; pi++) {
+      const patch = uConfig.patches![pi]
+      const count = getChannelCount(patch, fixtures)
+      const names = getChannelNames(patch, fixtures)
+
+      for (let ci = 0; ci < count; ci++) {
+        const dmxCh = patch.startAddress + ci
+        const key = `${uid}:${dmxCh}`
+        result.set(key, {
+          state: mappedSet.has(key) ? 'mapped' : 'unmapped',
+          patchIndex: pi,
+          channelName: names[ci] ?? `Ch ${ci + 1}`,
+          patchLabel: patch.label,
+          fixtureKey: patch.fixtureKey,
+        })
+      }
+    }
+  }
+
+  return result
+}
+
 export interface ParsedParam {
   group: string | null
   channel: string

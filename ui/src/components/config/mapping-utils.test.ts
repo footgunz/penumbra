@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseParam, groupParams, matchChannels } from './mapping-utils'
+import { parseParam, groupParams, matchChannels, resolveChannelStates, type ChannelState } from './mapping-utils'
+import type { UniverseConfig, ParameterConfig, Fixture } from '@/types'
 
 describe('parseParam', () => {
   it('splits on first / into group and channel', () => {
@@ -66,5 +67,60 @@ describe('matchChannels', () => {
 
   it('returns empty array when nothing matches', () => {
     expect(matchChannels(['X'], ['Y'])).toEqual([])
+  })
+})
+
+describe('resolveChannelStates', () => {
+  const fixtures: Record<string, Fixture> = {
+    'generic-rgb': {
+      name: 'Generic RGB',
+      shortName: 'RGB',
+      manufacturer: 'Generic',
+      channelCount: 3,
+      channels: ['Red', 'Green', 'Blue'],
+    },
+  }
+
+  it('marks patched channels with no parameter mapping as unmapped', () => {
+    const universes: Record<string, UniverseConfig> = {
+      '1': {
+        label: 'Stage',
+        patches: [{ fixtureKey: 'generic-rgb', label: 'RGB 1', startAddress: 1 }],
+      },
+    }
+    const parameters: Record<string, ParameterConfig> = {}
+    const result = resolveChannelStates(universes, parameters, fixtures)
+    expect(result.get('1:1')).toEqual({
+      state: 'unmapped',
+      patchIndex: 0,
+      channelName: 'Red',
+      patchLabel: 'RGB 1',
+      fixtureKey: 'generic-rgb',
+    })
+    expect(result.get('1:2')?.state).toBe('unmapped')
+    expect(result.get('1:3')?.state).toBe('unmapped')
+  })
+
+  it('marks channels with parameter mappings as mapped', () => {
+    const universes: Record<string, UniverseConfig> = {
+      '1': {
+        label: 'Stage',
+        patches: [{ fixtureKey: 'generic-rgb', label: 'RGB 1', startAddress: 1 }],
+      },
+    }
+    const parameters: Record<string, ParameterConfig> = {
+      'par_front/Red': [{ universe: 1, channel: 1 }] as unknown as ParameterConfig,
+    }
+    const result = resolveChannelStates(universes, parameters, fixtures)
+    expect(result.get('1:1')?.state).toBe('mapped')
+    expect(result.get('1:2')?.state).toBe('unmapped')
+  })
+
+  it('returns empty map for channels with no patches', () => {
+    const universes: Record<string, UniverseConfig> = {
+      '1': { label: 'Stage', patches: [] },
+    }
+    const result = resolveChannelStates(universes, {}, fixtures)
+    expect(result.size).toBe(0)
   })
 })
