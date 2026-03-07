@@ -83,6 +83,7 @@ function resolveMapping(
 export function MappingPanel({ params, parameters, universes, onSave, onSaveConfig }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState<Set<string> | null>(null)
   const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
 
@@ -238,31 +239,55 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
         <tbody>
           {groups.map((g) => (
             <Fragment key={g.group ?? '__ungrouped'}>
-              {g.group && (
-                <tr
-                  className="bg-surface-raised/50 cursor-grab hover:bg-surface-raised"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
-                    e.dataTransfer.effectAllowed = 'copy'
-                    setDragging(new Set(g.channels))
-                    setDraggedParams(g.channels)
-                  }}
-                  onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
-                  onClick={() => selectGroup(g)}
-                >
-                  <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
-                    <input
-                      type="checkbox"
-                      className="mr-2 align-middle"
-                      checked={g.channels.every((c) => selected.has(c))}
-                      readOnly
-                    />
-                    {g.group}
-                  </td>
-                </tr>
-              )}
-              {g.channels.map((name) => {
+              {g.group && (() => {
+                const isCollapsed = collapsed.has(g.group!)
+                return (
+                  <tr
+                    className="bg-surface-raised/50 cursor-grab hover:bg-surface-raised"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
+                      e.dataTransfer.effectAllowed = 'copy'
+                      setDragging(new Set(g.channels))
+                      setDraggedParams(g.channels)
+                    }}
+                    onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
+                  >
+                    <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
+                      <button
+                        className="mr-1 align-middle inline-flex w-4 h-4 items-center justify-center text-text-faint hover:text-text"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCollapsed((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(g.group!)) next.delete(g.group!)
+                            else next.add(g.group!)
+                            return next
+                          })
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 10 10" className={cn('transition-transform', isCollapsed ? '-rotate-90' : '')}>
+                          <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <input
+                        type="checkbox"
+                        className="mr-2 align-middle"
+                        checked={g.channels.every((c) => selected.has(c))}
+                        onChange={() => selectGroup(g)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      {g.group}
+                      {isCollapsed && (
+                        <span className="text-text-faint font-normal ml-1">
+                          ({t`${g.channels.length} channels`})
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })()}
+              {(!g.group || !collapsed.has(g.group)) && g.channels.map((name) => {
                 const row = rowMap.get(name)!
                 const isMapped = row.universe !== null
                 const { channel } = parseParam(row.paramName)
