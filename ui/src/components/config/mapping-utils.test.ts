@@ -81,9 +81,12 @@ describe('resolveChannelStates', () => {
     },
   }
 
+  const baseUniverse = { device_ip: '192.168.1.1', type: 'wled' as const }
+
   it('marks patched channels with no parameter mapping as unmapped', () => {
     const universes: Record<string, UniverseConfig> = {
       '1': {
+        ...baseUniverse,
         label: 'Stage',
         patches: [{ fixtureKey: 'generic-rgb', label: 'RGB 1', startAddress: 1 }],
       },
@@ -104,6 +107,7 @@ describe('resolveChannelStates', () => {
   it('marks channels with parameter mappings as mapped', () => {
     const universes: Record<string, UniverseConfig> = {
       '1': {
+        ...baseUniverse,
         label: 'Stage',
         patches: [{ fixtureKey: 'generic-rgb', label: 'RGB 1', startAddress: 1 }],
       },
@@ -118,7 +122,7 @@ describe('resolveChannelStates', () => {
 
   it('returns empty map for channels with no patches', () => {
     const universes: Record<string, UniverseConfig> = {
-      '1': { label: 'Stage', patches: [] },
+      '1': { ...baseUniverse, label: 'Stage', patches: [] },
     }
     const result = resolveChannelStates(universes, {}, fixtures)
     expect(result.size).toBe(0)
