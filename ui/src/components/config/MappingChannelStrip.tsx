@@ -92,7 +92,7 @@ export function MappingChannelStrip({
         )}
       </h3>
       <TooltipProvider>
-        <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(16, 1fr)' }}>
+        <div className="grid gap-0.5" style={{ gridTemplateColumns: 'repeat(16, minmax(3rem, 5rem))' }}>
           {Array.from({ length: totalChannels }, (_, i) => {
             const ch = i + 1
             const cs = channelStates.get(`${universeId}:${ch}`)
@@ -105,7 +105,7 @@ export function MappingChannelStrip({
             } else if (cs?.state === 'unmapped') {
               cellClass = colorSet!.dimmed
             } else {
-              cellClass = 'bg-surface border-border text-text-faint/40'
+              cellClass = 'bg-surface-raised/30 border-border/80 text-text-muted'
             }
 
             return (
@@ -113,7 +113,7 @@ export function MappingChannelStrip({
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
-                      'w-12 h-12 rounded-sm border text-[9px] flex flex-col items-center justify-center',
+                      'h-12 rounded-sm border text-[10px] flex flex-col items-center justify-center',
                       cellClass,
                       cs?.state === 'mapped' && 'cursor-not-allowed',
                       cs?.state !== 'mapped' && 'cursor-default',
@@ -125,7 +125,7 @@ export function MappingChannelStrip({
                   >
                     <span className="font-mono leading-none">{ch}</span>
                     {cs && (
-                      <span className="leading-none mt-0.5 truncate max-w-[44px] text-center">
+                      <span className="leading-none mt-0.5 truncate max-w-full px-0.5 text-center">
                         {cs.channelName}
                       </span>
                     )}
