@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { ParameterConfig, UniverseConfig, Fixture } from '@/types'
+import type { ParameterConfig, UniverseConfig, Fixture, Patch } from '@/types'
+import { groupParams, parseParam, matchChannels, resolveChannelStates } from './mapping-utils'
 import { getChannelNames } from './patch-utils'
+import { MappingChannelStrip } from './MappingChannelStrip'
+import { StartChannelDialog } from './StartChannelDialog'
 
 interface MappingPanelProps {
   params: Record<string, number>
   parameters: Record<string, ParameterConfig>
   universes: Record<string, UniverseConfig>
+  onSave: (parameters: Record<string, ParameterConfig>) => Promise<void>
+  onSaveConfig: (parameters: Record<string, ParameterConfig>, universes: Record<string, UniverseConfig>) => Promise<void>
 }
 
 interface ResolvedMapping {
@@ -76,8 +81,150 @@ function resolveMapping(
   return base
 }
 
-export function MappingPanel({ params, parameters, universes }: MappingPanelProps) {
+export function MappingPanel({ params, parameters, universes, onSave, onSaveConfig }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [dragging, setDragging] = useState<Set<string> | null>(null)
+  const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
+  const [emptyDrop, setEmptyDrop] = useState<{
+    universeId: string
+    channel: number
+    paramNames: string[]
+  } | null>(null)
+  const dragImageRef = useRef<HTMLDivElement | null>(null)
+
+  const buildDragImage = useCallback((e: React.DragEvent, count: number) => {
+    if (dragImageRef.current) {
+      document.body.removeChild(dragImageRef.current)
+    }
+    const canvas = document.createElement('canvas')
+    const size = 48
+    const gap = 2
+    canvas.width = count * size + (count - 1) * gap
+    canvas.height = size
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = 'rgb(167, 139, 250)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 3])
+    ctx.fillStyle = 'rgba(139, 92, 246, 0.25)'
+    for (let i = 0; i < count; i++) {
+      const x = i * (size + gap)
+      ctx.fillRect(x, 0, size, size)
+      ctx.strokeRect(x + 1, 1, size - 2, size - 2)
+    }
+    // Wrap canvas in a div positioned offscreen
+    const wrapper = document.createElement('div')
+    wrapper.style.position = 'absolute'
+    wrapper.style.top = '-9999px'
+    wrapper.style.left = '-9999px'
+    wrapper.appendChild(canvas)
+    document.body.appendChild(wrapper)
+    dragImageRef.current = wrapper
+    e.dataTransfer.setDragImage(canvas, 24, 24)
+  }, [])
+
+  function startDrag(e: React.DragEvent, paramNames: string[]) {
+    e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames }))
+    e.dataTransfer.effectAllowed = 'copy'
+    buildDragImage(e, paramNames.length)
+    setDragging(new Set(paramNames))
+    setDraggedParams(paramNames)
+    document.body.style.cursor = 'grabbing'
+  }
+
+  function endDrag() {
+    setDragging(null)
+    setDraggedParams(null)
+    document.body.style.cursor = ''
+    if (dragImageRef.current) {
+      document.body.removeChild(dragImageRef.current)
+      dragImageRef.current = null
+    }
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = ''
+      if (dragImageRef.current) {
+        document.body.removeChild(dragImageRef.current)
+      }
+    }
+  }, [])
+
+  async function handleDropOnFixture(universeId: string, patchIndex: number) {
+    if (!draggedParams) return
+    const uConfig = universes[universeId]
+    const patch = uConfig.patches?.[patchIndex]
+    if (!patch) return
+
+    const fixtureChannelNames =
+      patch.fixtureKey === 'manual'
+        ? (patch.channels ?? [])
+        : (fixtures?.[patch.fixtureKey]?.channels ?? [])
+
+    const emitterChannels = draggedParams.map((n) => parseParam(n).channel)
+    const matches = matchChannels(emitterChannels, fixtureChannelNames)
+
+    if (matches.length === 0) return
+
+    const updated = { ...parameters }
+    for (const match of matches) {
+      const paramName = draggedParams.find(
+        (n) => parseParam(n).channel.toLowerCase() === match.emitterChannel.toLowerCase(),
+      )
+      if (paramName) {
+        updated[paramName] = [
+          { universe: Number(universeId), channel: patch.startAddress + match.fixtureIndex },
+        ] as unknown as ParameterConfig
+      }
+    }
+
+    await onSave(updated)
+    setDragging(null)
+    setDraggedParams(null)
+  }
+
+  function handleDropOnEmpty(universeId: string, channel: number) {
+    if (!draggedParams) return
+    // Capture params now — onDragEnd will clear draggedParams after this
+    setEmptyDrop({ universeId, channel, paramNames: draggedParams })
+  }
+
+  async function confirmEmptyDrop(startAddress: number) {
+    if (!emptyDrop) return
+
+    const { paramNames, universeId } = emptyDrop
+    const emitterChannels = paramNames.map((n) => parseParam(n).channel)
+
+    const newPatch: Patch = {
+      fixtureKey: 'manual',
+      label: paramNames.length === 1
+        ? emitterChannels[0]
+        : parseParam(paramNames[0]).group ?? t`Manual`,
+      startAddress,
+      channels: emitterChannels,
+    }
+
+    const uConfig = universes[universeId]
+    const updatedUniverses = {
+      ...universes,
+      [universeId]: {
+        ...uConfig,
+        patches: [...(uConfig.patches ?? []), newPatch],
+      },
+    }
+
+    const updatedParams = { ...parameters }
+    for (let i = 0; i < paramNames.length; i++) {
+      updatedParams[paramNames[i]] = [
+        { universe: Number(universeId), channel: startAddress + i },
+      ] as unknown as ParameterConfig
+    }
+
+    await onSaveConfig(updatedParams, updatedUniverses)
+    setEmptyDrop(null)
+  }
 
   useEffect(() => {
     fetch('/api/fixtures')
@@ -96,14 +243,24 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
     )
   }
 
-  const rows = paramNames.map((name) =>
+  const channelStates = resolveChannelStates(universes, parameters, fixtures)
+  const groups = groupParams(paramNames)
+  const allRows = paramNames.map((name) =>
     resolveMapping(name, params[name], parameters, universes, fixtures),
   )
-
-  const mappedCount = rows.filter((r) => r.universe !== null).length
+  const rowMap = new Map(allRows.map((r) => [r.paramName, r]))
+  const mappedCount = allRows.filter((r) => r.universe !== null).length
 
   return (
-    <div className="flex-1 overflow-auto p-4">
+    <div
+      className="flex-1 overflow-auto p-4"
+      onDragOver={(e) => {
+        if (draggedParams) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+    >
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-sm font-semibold text-text-muted">
           {t`Emitter Parameters (${paramNames.length})`}
@@ -118,7 +275,7 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
         )}
       </div>
 
-      <table className="w-full text-sm">
+      <table className="text-sm">
         <thead>
           <tr className="border-b border-border text-text-muted text-xs text-left">
             <th className="pb-2 font-semibold">{t`Parameter`}</th>
@@ -129,49 +286,133 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const isMapped = row.universe !== null
-            return (
-              <tr
-                key={row.paramName}
-                className={cn(
-                  'border-b border-border/50',
-                  !isMapped && 'opacity-40',
-                )}
-              >
-                <td className="py-1.5 font-mono text-xs">{row.paramName}</td>
-                <td className="py-1.5 text-right font-mono text-xs tabular-nums">
-                  {(row.value * 100).toFixed(0)}%
-                </td>
-                <td className="py-1.5 text-center text-xs">
-                  {isMapped ? (
-                    <span title={row.universeLabel ?? undefined}>{row.universe}</span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td className="py-1.5 text-center font-mono text-xs">
-                  {isMapped ? row.channel : '—'}
-                </td>
-                <td className="py-1.5 text-xs text-text-muted">
-                  {isMapped && row.fixtureLabel ? (
-                    <>
-                      <span>{row.fixtureLabel}</span>
-                      {row.channelName && (
-                        <span className="text-text-faint"> / {row.channelName}</span>
+          {groups.map((g) => (
+            <Fragment key={g.group ?? '__ungrouped'}>
+              {g.group && (() => {
+                const isCollapsed = collapsed.has(g.group!)
+                return (
+                  <tr
+                    className="bg-surface-raised/50 cursor-grab hover:bg-surface-raised"
+                    draggable
+                    onDragStart={(e) => startDrag(e, g.channels)}
+                    onDragEnd={endDrag}
+                  >
+                    <td colSpan={5} className="py-1.5 px-1 text-sm font-semibold text-text-muted">
+                      <button
+                        className="mr-1.5 align-middle inline-flex w-4 h-4 items-center justify-center text-text-faint hover:text-text"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setCollapsed((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(g.group!)) next.delete(g.group!)
+                            else next.add(g.group!)
+                            return next
+                          })
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 10 10" className={cn('transition-transform', isCollapsed ? '-rotate-90' : '')}>
+                          <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      {g.group}
+                      {isCollapsed && (
+                        <span className="text-text-faint font-normal text-xs ml-1">
+                          ({t`${g.channels.length} channels`})
+                        </span>
                       )}
-                    </>
-                  ) : isMapped ? (
-                    <span className="text-text-faint">{t`no fixture at this address`}</span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+                    </td>
+                  </tr>
+                )
+              })()}
+              {(!g.group || !collapsed.has(g.group)) && g.channels.map((name) => {
+                const row = rowMap.get(name)!
+                const isMapped = row.universe !== null
+                const { channel } = parseParam(row.paramName)
+                return (
+                  <tr
+                    key={row.paramName}
+                    draggable
+                    onDragStart={(e) => startDrag(e, [row.paramName])}
+                    onDragEnd={endDrag}
+                    className={cn(
+                      'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
+                      !isMapped && 'opacity-40',
+                      dragging?.has(row.paramName) && 'opacity-20',
+                    )}
+                  >
+                    <td className="py-1.5 font-mono text-xs">
+                      {g.group ? (
+                        <span className="pl-6">{channel}</span>
+                      ) : (
+                        row.paramName
+                      )}
+                    </td>
+                    <td className="py-1.5 text-right font-mono text-xs tabular-nums">
+                      {(row.value * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-1.5 text-center text-xs">
+                      {isMapped ? (
+                        <span title={row.universeLabel ?? undefined}>{row.universe}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="py-1.5 text-center font-mono text-xs">
+                      {isMapped ? row.channel : '—'}
+                    </td>
+                    <td className="py-1.5 text-xs text-text-muted">
+                      {isMapped && row.fixtureLabel ? (
+                        <>
+                          <span>{row.fixtureLabel}</span>
+                          {row.channelName && (
+                            <span className="text-text-faint"> / {row.channelName}</span>
+                          )}
+                        </>
+                      ) : isMapped ? (
+                        <span className="text-text-faint">{t`no fixture at this address`}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Fragment>
+          ))}
         </tbody>
       </table>
+
+      <div className="mt-6 border-t border-border pt-4">
+        <h2 className="text-sm font-semibold text-text-muted mb-3">
+          {t`Universe Channel Maps`}
+        </h2>
+        {Object.entries(universes).map(([uid, uConfig]) => (
+          <MappingChannelStrip
+            key={uid}
+            universeId={uid}
+            universe={uConfig}
+            channelStates={channelStates}
+            dragChannelCount={draggedParams?.length ?? null}
+            onDropOnFixture={(universeId, patchIndex) => handleDropOnFixture(universeId, patchIndex)}
+            onDropOnEmpty={(universeId, channel) => handleDropOnEmpty(universeId, channel)}
+          />
+        ))}
+      </div>
+
+      {emptyDrop && (
+        <StartChannelDialog
+          open
+          defaultChannel={emptyDrop.channel}
+          fixtureLabel={
+            emptyDrop.paramNames.length === 1
+              ? parseParam(emptyDrop.paramNames[0]).channel
+              : parseParam(emptyDrop.paramNames[0]).group ?? t`Manual`
+          }
+          channelCount={emptyDrop.paramNames.length}
+          onConfirm={confirmEmptyDrop}
+          onCancel={() => setEmptyDrop(null)}
+        />
+      )}
     </div>
   )
 }

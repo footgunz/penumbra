@@ -23,17 +23,17 @@
     }
   },
   "parameters": {
-    "par_front_Dimmer": [{ "universe": 1, "channel": 1 }],
-    "par_front_Red":    [{ "universe": 1, "channel": 2 }],
-    "par_front_Green":  [{ "universe": 1, "channel": 3 }],
-    "par_front_Blue":   [{ "universe": 1, "channel": 4 }],
-    "par_front_Strobe": [{ "universe": 1, "channel": 5 }],
-    "par_front_Mode":   [{ "universe": 1, "channel": 6 }],
-    "mover_back_Pan":     [{ "universe": 2, "channel": 1 }],
-    "mover_back_Tilt":    [{ "universe": 2, "channel": 2 }],
-    "mover_back_Dimmer":  [{ "universe": 2, "channel": 3 }],
-    "mover_back_Color":   [{ "universe": 2, "channel": 4 }],
-    "mover_back_Gobo":    [{ "universe": 2, "channel": 5 }],
-    "mover_back_Speed":   [{ "universe": 2, "channel": 6 }]
+    "par_front/Dimmer": [{ "universe": 1, "channel": 1 }],
+    "par_front/Red":    [{ "universe": 1, "channel": 2 }],
+    "par_front/Green":  [{ "universe": 1, "channel": 3 }],
+    "par_front/Blue":   [{ "universe": 1, "channel": 4 }],
+    "par_front/Strobe": [{ "universe": 1, "channel": 5 }],
+    "par_front/Mode":   [{ "universe": 1, "channel": 6 }],
+    "mover_back/Pan":     [{ "universe": 2, "channel": 1 }],
+    "mover_back/Tilt":    [{ "universe": 2, "channel": 2 }],
+    "mover_back/Dimmer":  [{ "universe": 2, "channel": 3 }],
+    "mover_back/Color":   [{ "universe": 2, "channel": 4 }],
+    "mover_back/Gobo":    [{ "universe": 2, "channel": 5 }],
+    "mover_back/Speed":   [{ "universe": 2, "channel": 6 }]
   }
 }

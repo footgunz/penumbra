@@ -30,9 +30,9 @@ describe('createEmitter — channel strip', () => {
     e.emit()
 
     const pkt = decodePacket(sent[0])
-    expect(pkt.state['stage_left_Dimmer']).toBeCloseTo(0.75)
-    expect(pkt.state['stage_left_Red']).toBeCloseTo(1.0)
-    expect(pkt.state['stage_left_Blue']).toBeUndefined()
+    expect(pkt.state['stage_left/Dimmer']).toBeCloseTo(0.75)
+    expect(pkt.state['stage_left/Red']).toBeCloseTo(1.0)
+    expect(pkt.state['stage_left/Blue']).toBeUndefined()
   })
 
   it('inactive channels are excluded from emitted state', () => {
@@ -58,7 +58,7 @@ describe('createEmitter — channel strip', () => {
     e.emit()
 
     const pkt = decodePacket(sent[0])
-    expect(pkt.state['f_Dimmer']).toBeCloseTo(0)
+    expect(pkt.state['f/Dimmer']).toBeCloseTo(0)
   })
 
   it('setChannels preserves existing values by index', () => {
@@ -74,7 +74,7 @@ describe('createEmitter — channel strip', () => {
     e.emit()
 
     const pkt = decodePacket(sent[0])
-    expect(pkt.state['f_Dimmer']).toBeCloseTo(0.6)
+    expect(pkt.state['f/Dimmer']).toBeCloseTo(0.6)
   })
 
   it('resetSession clears channels and changes session id', () => {

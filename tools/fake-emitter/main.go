@@ -38,7 +38,7 @@ type StatePacket struct {
 }
 
 // Fixtures mirror the M4L preset library in device/scripts/src/main.ts.
-// Names use the same wire format as the real device: {fixture}_{Label}
+// Names use the same wire format as the real device: {fixture}/{Label}
 // where fixture is a lowercase track name and Label is Title Case.
 
 type fixture struct {
@@ -63,7 +63,7 @@ var allParameters []string
 func init() {
 	for _, f := range fixtures {
 		for _, l := range f.labels {
-			allParameters = append(allParameters, f.name+"_"+l)
+			allParameters = append(allParameters, f.name+"/"+l)
 		}
 	}
 }

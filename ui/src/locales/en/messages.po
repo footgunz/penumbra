@@ -18,12 +18,17 @@ msgstr ""
 msgid "\"{0}\" exceeds DMX address range (1-512)"
 msgstr "\"{0}\" exceeds DMX address range (1-512)"
 
+#. placeholder {0}: g.channels.length
+#: src/components/config/MappingPanel.tsx:253
+msgid "{0} channels"
+msgstr "{0} channels"
+
 #. placeholder {0}: paramNames.length - mappedCount
-#: src/components/config/MappingPanel.tsx:116
+#: src/components/config/MappingPanel.tsx:201
 msgid "{0} unmapped"
 msgstr "{0} unmapped"
 
-#: src/components/config/MappingPanel.tsx:112
+#: src/components/config/MappingPanel.tsx:197
 msgid "{mappedCount} mapped"
 msgstr "{mappedCount} mapped"
 
@@ -53,8 +58,13 @@ msgstr "Add universe"
 msgid "Advanced"
 msgstr "Advanced"
 
+#: src/components/config/MappingPanel.tsx:194
+#~ msgid "Assign {0} to fixture..."
+#~ msgstr "Assign {0} to fixture..."
+
 #: src/components/config/FixturePicker.tsx:60
 #: src/components/config/PatchPanel.tsx:248
+#: src/components/config/StartChannelDialog.tsx:79
 #: src/components/config/UniversesPanel.tsx:233
 #: src/components/config/UniversesPanel.tsx:377
 msgid "Cancel"
@@ -65,19 +75,25 @@ msgstr "Cancel"
 msgid "Cancel delete"
 msgstr "Cancel delete"
 
-#: src/components/config/MappingPanel.tsx:127
+#: src/components/config/MappingPanel.tsx:212
 #: src/components/UniverseList.tsx:51
 msgid "Ch"
 msgstr "Ch"
 
 #. placeholder {0}: cell.channelName
+#. placeholder {0}: cs.channelName
 #: src/components/config/ChannelStrip.tsx:90
+#: src/components/config/MappingChannelStrip.tsx:134
 msgid "Ch {ch}: {0}"
 msgstr "Ch {ch}: {0}"
 
 #: src/components/config/ChannelStrip.tsx:94
 msgid "Ch {ch}: empty"
 msgstr "Ch {ch}: empty"
+
+#: src/components/config/MappingChannelStrip.tsx:141
+msgid "Ch {ch}: empty — drop to create fixture"
+msgstr "Ch {ch}: empty — drop to create fixture"
 
 #: src/components/config/ChannelStrip.tsx:65
 msgid "Channel Map"
@@ -86,6 +102,10 @@ msgstr "Channel Map"
 #: src/components/AppSidebar.tsx:38
 msgid "Channel Mapping"
 msgstr "Channel Mapping"
+
+#: src/components/config/StartChannelDialog.tsx:73
+msgid "Channel must be 1–512 and fit {channelCount} channels."
+msgstr "Channel must be 1–512 and fit {channelCount} channels."
 
 #: src/components/config/FixturePicker.tsx:86
 #: src/components/config/PatchPanel.tsx:223
@@ -100,9 +120,13 @@ msgstr "Channels"
 msgid "Configuration"
 msgstr "Configuration"
 
-#: src/App.tsx:214
+#: src/App.tsx:220
 msgid "Configure on desktop or tablet"
 msgstr "Configure on desktop or tablet"
+
+#: src/components/config/MappingPanel.tsx:266
+#~ msgid "Confirm"
+#~ msgstr "Confirm"
 
 #: src/components/config/PatchPanel.tsx:293
 #: src/components/config/UniversesPanel.tsx:284
@@ -110,8 +134,13 @@ msgid "Confirm delete"
 msgstr "Confirm delete"
 
 #: src/components/config/FixturePicker.tsx:96
+#: src/components/config/StartChannelDialog.tsx:82
 msgid "Create"
 msgstr "Create"
+
+#: src/components/config/StartChannelDialog.tsx:53
+msgid "Create Manual Fixture"
+msgstr "Create Manual Fixture"
 
 #: src/components/config/UniversesPanel.tsx:106
 msgid "Delete failed"
@@ -134,6 +163,10 @@ msgstr "Delete?"
 msgid "DMX"
 msgstr "DMX"
 
+#: src/components/config/MappingPanel.tsx:240
+#~ msgid "DMX Ch"
+#~ msgstr "DMX Ch"
+
 #: src/components/StatusBar.tsx:60
 msgid "E-Stop"
 msgstr "E-Stop"
@@ -150,6 +183,10 @@ msgstr "Edit universe"
 msgid "Emitter"
 msgstr "Emitter"
 
+#: src/components/config/MappingPanel.tsx:238
+#~ msgid "Emitter Channel"
+#~ msgstr "Emitter Channel"
+
 #: src/components/StatusBar.tsx:14
 msgid "Emitter Connected"
 msgstr "Emitter Connected"
@@ -163,7 +200,7 @@ msgid "Emitter Idle"
 msgstr "Emitter Idle"
 
 #. placeholder {0}: paramNames.length
-#: src/components/config/MappingPanel.tsx:109
+#: src/components/config/MappingPanel.tsx:194
 msgid "Emitter Parameters ({0})"
 msgstr "Emitter Parameters ({0})"
 
@@ -187,9 +224,13 @@ msgstr "Failed to load config: {configError}"
 msgid "Failed to load fixtures: {error}"
 msgstr "Failed to load fixtures: {error}"
 
-#: src/components/config/MappingPanel.tsx:128
+#: src/components/config/MappingPanel.tsx:213
 msgid "Fixture / Channel"
 msgstr "Fixture / Channel"
+
+#: src/components/config/MappingPanel.tsx:239
+#~ msgid "Fixture Channel"
+#~ msgstr "Fixture Channel"
 
 #: src/components/AppSidebar.tsx:37
 msgid "Fixtures"
@@ -233,20 +274,30 @@ msgid "Loading fixtures..."
 msgstr "Loading fixtures..."
 
 #: src/components/config/FixturePicker.tsx:52
+#: src/components/config/MappingPanel.tsx:138
+#: src/components/config/MappingPanel.tsx:347
 #: src/components/config/PatchPanel.tsx:82
 msgid "Manual"
 msgstr "Manual"
 
+#: src/components/config/MappingChannelStrip.tsx:137
+msgid "Mapped"
+msgstr "Mapped"
+
 #: src/components/ConfigEditor.tsx:74
 #~ msgid "Mapping"
 #~ msgstr "Mapping"
+
+#: src/components/config/MappingPanel.tsx:230
+#~ msgid "Mapping preview — {0} (Universe {1})"
+#~ msgstr "Mapping preview — {0} (Universe {1})"
 
 #: src/components/AppSidebar.tsx:74
 #: src/components/AppSidebar.tsx:77
 msgid "Monitor"
 msgstr "Monitor"
 
-#: src/components/config/MappingPanel.tsx:165
+#: src/components/config/MappingPanel.tsx:310
 msgid "no fixture at this address"
 msgstr "no fixture at this address"
 
@@ -258,7 +309,11 @@ msgstr "No fixtures assigned. Click \"Add Fixture\" to get started."
 msgid "No fixtures found"
 msgstr "No fixtures found"
 
-#: src/components/config/MappingPanel.tsx:94
+#: src/components/config/MappingPanel.tsx:233
+#~ msgid "No matching channel names found."
+#~ msgstr "No matching channel names found."
+
+#: src/components/config/MappingPanel.tsx:177
 msgid "No parameters received from emitter."
 msgstr "No parameters received from emitter."
 
@@ -297,7 +352,7 @@ msgstr "Online"
 msgid "Overlap at channel {0}: \"{1}\" and \"{2}\""
 msgstr "Overlap at channel {0}: \"{1}\" and \"{2}\""
 
-#: src/components/config/MappingPanel.tsx:124
+#: src/components/config/MappingPanel.tsx:209
 #: src/components/UniverseList.tsx:52
 msgid "Parameter"
 msgstr "Parameter"
@@ -313,6 +368,10 @@ msgstr "Parameters"
 #: src/components/config/PatchPanel.tsx:149
 msgid "Patch"
 msgstr "Patch"
+
+#: src/components/config/StartChannelDialog.tsx:55
+msgid "Placing \"{fixtureLabel}\" ({channelCount} channels)"
+msgstr "Placing \"{fixtureLabel}\" ({channelCount} channels)"
 
 #: src/components/StatusBar.tsx:41
 msgid "Reset"
@@ -351,6 +410,10 @@ msgstr "Scenes"
 msgid "Search fixtures..."
 msgstr "Search fixtures..."
 
+#: src/components/config/MappingPanel.tsx:202
+#~ msgid "Select target fixture patch:"
+#~ msgstr "Select target fixture patch:"
+
 #: src/components/StatusBar.tsx:64
 msgid "session: {sessionId}"
 msgstr "session: {sessionId}"
@@ -358,6 +421,14 @@ msgstr "session: {sessionId}"
 #: src/components/config/PatchPanel.tsx:210
 msgid "Start Address"
 msgstr "Start Address"
+
+#: src/components/config/StartChannelDialog.tsx:60
+msgid "Start Channel"
+msgstr "Start Channel"
+
+#: src/components/config/MappingPanel.tsx:148
+#~ msgid "Start channel for new fixture:"
+#~ msgstr "Start channel for new fixture:"
 
 #: src/components/AppSidebar.tsx:104
 msgid "System"
@@ -368,7 +439,7 @@ msgstr "System"
 msgid "Type"
 msgstr "Type"
 
-#: src/components/config/MappingPanel.tsx:126
+#: src/components/config/MappingPanel.tsx:211
 msgid "Univ"
 msgstr "Univ"
 
@@ -390,6 +461,18 @@ msgstr "Universe {id}: {0}"
 msgid "Universe {newId} already exists"
 msgstr "Universe {newId} already exists"
 
+#: src/components/config/MappingPanel.tsx:211
+#~ msgid "Universe {uid}"
+#~ msgstr "Universe {uid}"
+
+#: src/components/config/MappingChannelStrip.tsx:85
+msgid "Universe {universeId}"
+msgstr "Universe {universeId}"
+
+#: src/components/config/MappingPanel.tsx:325
+msgid "Universe Channel Maps"
+msgstr "Universe Channel Maps"
+
 #: src/components/config/UniversesPanel.tsx:63
 #: src/components/config/UniversesPanel.tsx:115
 msgid "Universe ID must be a positive number"
@@ -405,7 +488,11 @@ msgstr "Universes"
 msgid "Universes ({0})"
 msgstr "Universes ({0})"
 
-#: src/components/config/MappingPanel.tsx:125
+#: src/components/config/MappingChannelStrip.tsx:137
+msgid "Unmapped — drop to assign"
+msgstr "Unmapped — drop to assign"
+
+#: src/components/config/MappingPanel.tsx:210
 msgid "Value"
 msgstr "Value"
 
