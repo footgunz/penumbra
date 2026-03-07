@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { ParameterConfig, UniverseConfig, Fixture } from '@/types'
+import { groupParams, parseParam } from './mapping-utils'
 import { getChannelNames } from './patch-utils'
 
 interface MappingPanelProps {
@@ -96,11 +97,12 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
     )
   }
 
-  const rows = paramNames.map((name) =>
+  const groups = groupParams(paramNames)
+  const allRows = paramNames.map((name) =>
     resolveMapping(name, params[name], parameters, universes, fixtures),
   )
-
-  const mappedCount = rows.filter((r) => r.universe !== null).length
+  const rowMap = new Map(allRows.map((r) => [r.paramName, r]))
+  const mappedCount = allRows.filter((r) => r.universe !== null).length
 
   return (
     <div className="flex-1 overflow-auto p-4">
@@ -129,47 +131,66 @@ export function MappingPanel({ params, parameters, universes }: MappingPanelProp
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const isMapped = row.universe !== null
-            return (
-              <tr
-                key={row.paramName}
-                className={cn(
-                  'border-b border-border/50',
-                  !isMapped && 'opacity-40',
-                )}
-              >
-                <td className="py-1.5 font-mono text-xs">{row.paramName}</td>
-                <td className="py-1.5 text-right font-mono text-xs tabular-nums">
-                  {(row.value * 100).toFixed(0)}%
-                </td>
-                <td className="py-1.5 text-center text-xs">
-                  {isMapped ? (
-                    <span title={row.universeLabel ?? undefined}>{row.universe}</span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td className="py-1.5 text-center font-mono text-xs">
-                  {isMapped ? row.channel : '—'}
-                </td>
-                <td className="py-1.5 text-xs text-text-muted">
-                  {isMapped && row.fixtureLabel ? (
-                    <>
-                      <span>{row.fixtureLabel}</span>
-                      {row.channelName && (
-                        <span className="text-text-faint"> / {row.channelName}</span>
+          {groups.map((g) => (
+            <Fragment key={g.group ?? '__ungrouped'}>
+              {g.group && (
+                <tr className="bg-surface-raised/50">
+                  <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
+                    {g.group}
+                  </td>
+                </tr>
+              )}
+              {g.channels.map((name) => {
+                const row = rowMap.get(name)!
+                const isMapped = row.universe !== null
+                const { channel } = parseParam(row.paramName)
+                return (
+                  <tr
+                    key={row.paramName}
+                    className={cn(
+                      'border-b border-border/50',
+                      !isMapped && 'opacity-40',
+                    )}
+                  >
+                    <td className="py-1.5 font-mono text-xs">
+                      {g.group ? (
+                        <span className="pl-3">{channel}</span>
+                      ) : (
+                        row.paramName
                       )}
-                    </>
-                  ) : isMapped ? (
-                    <span className="text-text-faint">{t`no fixture at this address`}</span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+                    </td>
+                    <td className="py-1.5 text-right font-mono text-xs tabular-nums">
+                      {(row.value * 100).toFixed(0)}%
+                    </td>
+                    <td className="py-1.5 text-center text-xs">
+                      {isMapped ? (
+                        <span title={row.universeLabel ?? undefined}>{row.universe}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="py-1.5 text-center font-mono text-xs">
+                      {isMapped ? row.channel : '—'}
+                    </td>
+                    <td className="py-1.5 text-xs text-text-muted">
+                      {isMapped && row.fixtureLabel ? (
+                        <>
+                          <span>{row.fixtureLabel}</span>
+                          {row.channelName && (
+                            <span className="text-text-faint"> / {row.channelName}</span>
+                          )}
+                        </>
+                      ) : isMapped ? (
+                        <span className="text-text-faint">{t`no fixture at this address`}</span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Fragment>
+          ))}
         </tbody>
       </table>
     </div>
