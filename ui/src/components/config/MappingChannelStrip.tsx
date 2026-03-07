@@ -25,6 +25,7 @@ interface MappingChannelStripProps {
   universeId: string
   universe: UniverseConfig
   channelStates: Map<string, ChannelState>
+  dragChannelCount: number | null
   onDropOnFixture: (universeId: string, patchIndex: number) => void
   onDropOnEmpty: (universeId: string, channel: number) => void
 }
@@ -33,6 +34,7 @@ export function MappingChannelStrip({
   universeId,
   universe,
   channelStates,
+  dragChannelCount,
   onDropOnFixture,
   onDropOnEmpty,
 }: MappingChannelStripProps) {
@@ -53,12 +55,6 @@ export function MappingChannelStrip({
   const totalChannels = Math.max(16, maxChannel + 4)
 
   function handleDragOver(e: React.DragEvent, ch: number) {
-    const cs = channelStates.get(`${universeId}:${ch}`)
-    // Reject drops on already-mapped channels
-    if (cs?.state === 'mapped') {
-      e.dataTransfer.dropEffect = 'none'
-      return
-    }
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
     setDragOver(ch)
@@ -96,7 +92,9 @@ export function MappingChannelStrip({
           {Array.from({ length: totalChannels }, (_, i) => {
             const ch = i + 1
             const cs = channelStates.get(`${universeId}:${ch}`)
-            const isDragTarget = dragOver === ch
+            const isDragTarget = dragOver !== null && dragChannelCount !== null
+              && ch >= dragOver && ch < dragOver + dragChannelCount
+            const isDragAnchor = dragOver === ch
             const colorSet = cs ? FIXTURE_COLORS[cs.patchIndex % FIXTURE_COLORS.length] : null
 
             let cellClass: string
@@ -113,11 +111,10 @@ export function MappingChannelStrip({
                 <TooltipTrigger asChild>
                   <div
                     className={cn(
-                      'h-12 rounded-sm border text-[10px] flex flex-col items-center justify-center',
+                      'h-12 rounded-sm border text-[10px] flex flex-col items-center justify-center cursor-default',
                       cellClass,
-                      cs?.state === 'mapped' && 'cursor-not-allowed',
-                      cs?.state !== 'mapped' && 'cursor-default',
-                      isDragTarget && cs?.state !== 'mapped' && 'ring-2 ring-accent',
+                      isDragTarget && 'ring-2 ring-accent/60 border-accent/40',
+                      isDragAnchor && 'ring-accent',
                     )}
                     onDragOver={(e) => handleDragOver(e, ch)}
                     onDragLeave={handleDragLeave}

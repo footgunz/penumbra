@@ -83,33 +83,10 @@ function resolveMapping(
 
 export function MappingPanel({ params, parameters, universes, onSave, onSaveConfig }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState<Set<string> | null>(null)
   const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
   const [emptyDrop, setEmptyDrop] = useState<{ universeId: string; channel: number } | null>(null)
-
-  function toggleParam(name: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
-      return next
-    })
-  }
-
-  function selectGroup(group: { channels: string[] }) {
-    setSelected((prev) => {
-      const allSelected = group.channels.every((c) => prev.has(c))
-      const next = new Set(prev)
-      if (allSelected) {
-        group.channels.forEach((c) => next.delete(c))
-      } else {
-        group.channels.forEach((c) => next.add(c))
-      }
-      return next
-    })
-  }
 
   async function handleDropOnFixture(universeId: string, patchIndex: number) {
     if (!draggedParams) return
@@ -253,9 +230,9 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     }}
                     onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
                   >
-                    <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
+                    <td colSpan={5} className="py-1.5 px-1 text-sm font-semibold text-text-muted">
                       <button
-                        className="mr-1 align-middle inline-flex w-4 h-4 items-center justify-center text-text-faint hover:text-text"
+                        className="mr-1.5 align-middle inline-flex w-4 h-4 items-center justify-center text-text-faint hover:text-text"
                         onClick={(e) => {
                           e.stopPropagation()
                           setCollapsed((prev) => {
@@ -270,16 +247,9 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                           <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </button>
-                      <input
-                        type="checkbox"
-                        className="mr-2 align-middle"
-                        checked={g.channels.every((c) => selected.has(c))}
-                        onChange={() => selectGroup(g)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
                       {g.group}
                       {isCollapsed && (
-                        <span className="text-text-faint font-normal ml-1">
+                        <span className="text-text-faint font-normal text-xs ml-1">
                           ({t`${g.channels.length} channels`})
                         </span>
                       )}
@@ -305,32 +275,14 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     className={cn(
                       'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
-                      selected.has(row.paramName) && 'bg-accent/10',
                       dragging?.has(row.paramName) && 'opacity-20',
                     )}
-                    onClick={() => toggleParam(row.paramName)}
                   >
                     <td className="py-1.5 font-mono text-xs">
                       {g.group ? (
-                        <span className="pl-3">
-                          <input
-                            type="checkbox"
-                            className="mr-2 align-middle"
-                            checked={selected.has(row.paramName)}
-                            readOnly
-                          />
-                          {channel}
-                        </span>
+                        <span className="pl-6">{channel}</span>
                       ) : (
-                        <>
-                          <input
-                            type="checkbox"
-                            className="mr-2 align-middle"
-                            checked={selected.has(row.paramName)}
-                            readOnly
-                          />
-                          {row.paramName}
-                        </>
+                        row.paramName
                       )}
                     </td>
                     <td className="py-1.5 text-right font-mono text-xs tabular-nums">
@@ -378,6 +330,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
             universeId={uid}
             universe={uConfig}
             channelStates={channelStates}
+            dragChannelCount={draggedParams?.length ?? null}
             onDropOnFixture={(universeId, patchIndex) => handleDropOnFixture(universeId, patchIndex)}
             onDropOnEmpty={(universeId, channel) => handleDropOnEmpty(universeId, channel)}
           />
