@@ -2,8 +2,8 @@ import { Fragment, useEffect, useState } from 'react'
 import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import type { ParameterConfig, UniverseConfig, Fixture } from '@/types'
-import { groupParams, parseParam } from './mapping-utils'
+import type { ParameterConfig, UniverseConfig, Fixture, Patch } from '@/types'
+import { groupParams, parseParam, matchChannels } from './mapping-utils'
 import { getChannelNames } from './patch-utils'
 
 interface MappingPanelProps {
@@ -81,6 +81,13 @@ function resolveMapping(
 export function MappingPanel({ params, parameters, universes, onSave }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [showPicker, setShowPicker] = useState(false)
+  const [preview, setPreview] = useState<{
+    universeId: string
+    patch: Patch
+    matches: Array<{ emitterChannel: string; fixtureIndex: number }>
+    startAddress: number
+  } | null>(null)
 
   function toggleParam(name: string) {
     setSelected((prev) => {
@@ -102,6 +109,43 @@ export function MappingPanel({ params, parameters, universes, onSave }: MappingP
       }
       return next
     })
+  }
+
+  function handleAssign(universeId: string, patch: Patch) {
+    const fixtureChannelNames =
+      patch.fixtureKey === 'manual'
+        ? (patch.channels ?? [])
+        : (fixtures?.[patch.fixtureKey]?.channels ?? [])
+
+    const selectedNames = Array.from(selected)
+    const emitterChannels = selectedNames.map((n) => parseParam(n).channel)
+
+    const matches = matchChannels(emitterChannels, fixtureChannelNames)
+
+    setPreview({ universeId, patch, matches, startAddress: patch.startAddress })
+    setShowPicker(false)
+  }
+
+  async function confirmAssignment() {
+    if (!preview) return
+
+    const selectedNames = Array.from(selected)
+    const updated = { ...parameters }
+
+    for (const match of preview.matches) {
+      const paramName = selectedNames.find(
+        (n) => parseParam(n).channel.toLowerCase() === match.emitterChannel.toLowerCase(),
+      )
+      if (paramName) {
+        updated[paramName] = [
+          { universe: Number(preview.universeId), channel: preview.startAddress + match.fixtureIndex },
+        ] as unknown as ParameterConfig
+      }
+    }
+
+    await onSave(updated)
+    setSelected(new Set())
+    setPreview(null)
   }
 
   useEffect(() => {
@@ -145,12 +189,91 @@ export function MappingPanel({ params, parameters, universes, onSave }: MappingP
         {selected.size > 0 && (
           <button
             className="ml-auto text-xs bg-accent text-accent-foreground px-3 py-1 rounded hover:bg-accent/80"
-            onClick={() => {/* Task 6 wires this up */}}
+            onClick={() => setShowPicker(true)}
           >
             {t`Assign ${selected.size} to fixture...`}
           </button>
         )}
       </div>
+
+      {showPicker && (
+        <div className="mb-4 border border-border rounded p-3 bg-surface">
+          <div className="text-xs font-semibold text-text-muted mb-2">
+            {t`Select target fixture patch:`}
+          </div>
+          {Object.entries(universes).map(([uid, uConfig]) =>
+            (uConfig.patches ?? []).map((patch, pIdx) => (
+              <button
+                key={`${uid}-${pIdx}`}
+                className="block w-full text-left text-xs px-2 py-1.5 rounded hover:bg-surface-raised"
+                onClick={() => handleAssign(uid, patch)}
+              >
+                {t`Universe ${uid}`}
+                {uConfig.label && <span className="text-text-faint"> ({uConfig.label})</span>}
+                {' → '}
+                {patch.label}
+              </button>
+            )),
+          )}
+          <button
+            className="mt-2 text-xs text-text-muted hover:text-text"
+            onClick={() => setShowPicker(false)}
+          >
+            {t`Cancel`}
+          </button>
+        </div>
+      )}
+
+      {preview && (
+        <div className="mb-4 border border-border rounded p-3 bg-surface">
+          <div className="text-xs font-semibold text-text-muted mb-2">
+            {t`Mapping preview — ${preview.patch.label} (Universe ${preview.universeId})`}
+          </div>
+          {preview.matches.length === 0 ? (
+            <div className="text-xs text-warning">{t`No matching channel names found.`}</div>
+          ) : (
+            <table className="w-full text-xs mb-2">
+              <thead>
+                <tr className="text-text-muted">
+                  <th className="text-left pb-1">{t`Emitter Channel`}</th>
+                  <th className="text-left pb-1">{t`Fixture Channel`}</th>
+                  <th className="text-center pb-1">{t`DMX Ch`}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.matches.map((m) => {
+                  const fcNames =
+                    preview.patch.fixtureKey === 'manual'
+                      ? (preview.patch.channels ?? [])
+                      : (fixtures?.[preview.patch.fixtureKey]?.channels ?? [])
+                  return (
+                    <tr key={m.emitterChannel}>
+                      <td className="py-0.5 font-mono">{m.emitterChannel}</td>
+                      <td className="py-0.5 font-mono">{fcNames[m.fixtureIndex]}</td>
+                      <td className="py-0.5 text-center">{preview.startAddress + m.fixtureIndex}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+          <div className="flex gap-2 mt-2">
+            <button
+              className="text-xs bg-accent text-accent-foreground px-3 py-1 rounded hover:bg-accent/80"
+              onClick={confirmAssignment}
+              disabled={preview.matches.length === 0}
+            >
+              {t`Confirm`}
+            </button>
+            <button
+              className="text-xs text-text-muted hover:text-text"
+              onClick={() => setPreview(null)}
+            >
+              {t`Cancel`}
+            </button>
+          </div>
+        </div>
+      )}
 
       <table className="w-full text-sm">
         <thead>
