@@ -82,6 +82,7 @@ function resolveMapping(
 export function MappingPanel({ params, parameters, universes, onSave, onSaveConfig }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [dragging, setDragging] = useState<Set<string> | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [preview, setPreview] = useState<{
     universeId: string
@@ -291,7 +292,14 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
             <Fragment key={g.group ?? '__ungrouped'}>
               {g.group && (
                 <tr
-                  className="bg-surface-raised/50 cursor-pointer hover:bg-surface-raised"
+                  className="bg-surface-raised/50 cursor-grab hover:bg-surface-raised"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
+                    e.dataTransfer.effectAllowed = 'copy'
+                    setDragging(new Set(g.channels))
+                  }}
+                  onDragEnd={() => setDragging(null)}
                   onClick={() => selectGroup(g)}
                 >
                   <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
@@ -312,10 +320,18 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                 return (
                   <tr
                     key={row.paramName}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: [row.paramName] }))
+                      e.dataTransfer.effectAllowed = 'copy'
+                      setDragging(new Set([row.paramName]))
+                    }}
+                    onDragEnd={() => setDragging(null)}
                     className={cn(
-                      'border-b border-border/50 cursor-pointer hover:bg-surface-raised/30',
+                      'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
                       selected.has(row.paramName) && 'bg-accent/10',
+                      dragging?.has(row.paramName) && 'opacity-20',
                     )}
                     onClick={() => toggleParam(row.paramName)}
                   >
