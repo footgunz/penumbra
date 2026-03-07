@@ -11,6 +11,7 @@ interface MappingPanelProps {
   parameters: Record<string, ParameterConfig>
   universes: Record<string, UniverseConfig>
   onSave: (parameters: Record<string, ParameterConfig>) => Promise<void>
+  onSaveConfig: (parameters: Record<string, ParameterConfig>, universes: Record<string, UniverseConfig>) => Promise<void>
 }
 
 interface ResolvedMapping {
@@ -78,7 +79,7 @@ function resolveMapping(
   return base
 }
 
-export function MappingPanel({ params, parameters, universes, onSave }: MappingPanelProps) {
+export function MappingPanel({ params, parameters, universes, onSave, onSaveConfig }: MappingPanelProps) {
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showPicker, setShowPicker] = useState(false)

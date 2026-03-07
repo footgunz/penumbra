@@ -170,6 +170,9 @@ export function App() {
             onSave={async (parameters) => {
               await saveConfig({ ...config, parameters })
             }}
+            onSaveConfig={async (parameters, universes) => {
+              await saveConfig({ ...config, parameters, universes })
+            }}
           />
         )
       case 'zones':
