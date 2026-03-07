@@ -6,6 +6,7 @@ import type { ParameterConfig, UniverseConfig, Fixture, Patch } from '@/types'
 import { groupParams, parseParam, matchChannels, resolveChannelStates } from './mapping-utils'
 import { getChannelNames } from './patch-utils'
 import { MappingChannelStrip } from './MappingChannelStrip'
+import { StartChannelDialog } from './StartChannelDialog'
 
 interface MappingPanelProps {
   params: Record<string, number>
@@ -86,6 +87,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState<Set<string> | null>(null)
   const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
+  const [emptyDrop, setEmptyDrop] = useState<{ universeId: string; channel: number } | null>(null)
 
   function toggleParam(name: string) {
     setSelected((prev) => {
@@ -142,16 +144,13 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
     setDraggedParams(null)
   }
 
-  async function handleDropOnEmpty(universeId: string, channel: number) {
+  function handleDropOnEmpty(universeId: string, channel: number) {
     if (!draggedParams) return
+    setEmptyDrop({ universeId, channel })
+  }
 
-    const startStr = window.prompt(
-      t`Start channel for new fixture:`,
-      String(channel),
-    )
-    if (startStr === null) return
-    const startAddress = parseInt(startStr, 10)
-    if (isNaN(startAddress) || startAddress < 1 || startAddress > 512) return
+  async function confirmEmptyDrop(startAddress: number) {
+    if (!draggedParams || !emptyDrop) return
 
     const emitterChannels = draggedParams.map((n) => parseParam(n).channel)
 
@@ -164,10 +163,10 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
       channels: emitterChannels,
     }
 
-    const uConfig = universes[universeId]
+    const uConfig = universes[emptyDrop.universeId]
     const updatedUniverses = {
       ...universes,
-      [universeId]: {
+      [emptyDrop.universeId]: {
         ...uConfig,
         patches: [...(uConfig.patches ?? []), newPatch],
       },
@@ -176,13 +175,14 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
     const updatedParams = { ...parameters }
     for (let i = 0; i < draggedParams.length; i++) {
       updatedParams[draggedParams[i]] = [
-        { universe: Number(universeId), channel: startAddress + i },
+        { universe: Number(emptyDrop.universeId), channel: startAddress + i },
       ] as unknown as ParameterConfig
     }
 
     await onSaveConfig(updatedParams, updatedUniverses)
     setDragging(null)
     setDraggedParams(null)
+    setEmptyDrop(null)
   }
 
   useEffect(() => {
@@ -383,6 +383,25 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
           />
         ))}
       </div>
+
+      {emptyDrop && draggedParams && (
+        <StartChannelDialog
+          open
+          defaultChannel={emptyDrop.channel}
+          fixtureLabel={
+            draggedParams.length === 1
+              ? parseParam(draggedParams[0]).channel
+              : parseParam(draggedParams[0]).group ?? t`Manual`
+          }
+          channelCount={draggedParams.length}
+          onConfirm={confirmEmptyDrop}
+          onCancel={() => {
+            setEmptyDrop(null)
+            setDragging(null)
+            setDraggedParams(null)
+          }}
+        />
+      )}
     </div>
   )
 }
