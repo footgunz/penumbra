@@ -109,14 +109,15 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
       cell.textContent = name
       cell.style.width = '48px'
       cell.style.height = '48px'
-      cell.style.border = '2px dashed rgba(139, 92, 246, 0.6)'
+      cell.style.border = '2px dashed rgb(167, 139, 250)'
       cell.style.borderRadius = '4px'
       cell.style.display = 'flex'
       cell.style.alignItems = 'center'
       cell.style.justifyContent = 'center'
       cell.style.fontSize = '9px'
-      cell.style.color = 'rgba(139, 92, 246, 0.8)'
-      cell.style.background = 'rgba(139, 92, 246, 0.1)'
+      cell.style.fontFamily = 'monospace'
+      cell.style.color = 'rgb(196, 181, 253)'
+      cell.style.background = 'rgba(139, 92, 246, 0.25)'
       ghost.appendChild(cell)
     }
     document.body.appendChild(ghost)
@@ -233,7 +234,15 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
   const mappedCount = allRows.filter((r) => r.universe !== null).length
 
   return (
-    <div className="flex-1 overflow-auto p-4">
+    <div
+      className="flex-1 overflow-auto p-4"
+      onDragOver={(e) => {
+        if (draggedParams) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+    >
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-sm font-semibold text-text-muted">
           {t`Emitter Parameters (${paramNames.length})`}
