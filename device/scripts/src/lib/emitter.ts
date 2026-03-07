@@ -74,13 +74,13 @@ export function createEmitter(send: SendFn) {
       state.channels = []
     },
 
-    // Emit current state — only active channels, keyed as {fixtureName}_{label}.
+    // Emit current state — only active channels, keyed as {fixtureName}/{label}.
     emit: function(): void {
       const params: Record<string, number> = {}
       for (let i = 0; i < state.channels.length; i++) {
         const ch = state.channels[i]
         if (ch.active) {
-          params[state.fixtureName + '_' + ch.label] = ch.value
+          params[state.fixtureName + '/' + ch.label] = ch.value
         }
       }
       const pkt = {
