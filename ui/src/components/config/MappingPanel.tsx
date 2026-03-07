@@ -3,8 +3,9 @@ import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { ParameterConfig, UniverseConfig, Fixture, Patch } from '@/types'
-import { groupParams, parseParam, matchChannels } from './mapping-utils'
+import { groupParams, parseParam, matchChannels, resolveChannelStates } from './mapping-utils'
 import { getChannelNames } from './patch-utils'
+import { MappingChannelStrip } from './MappingChannelStrip'
 
 interface MappingPanelProps {
   params: Record<string, number>
@@ -83,6 +84,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
   const [fixtures, setFixtures] = useState<Record<string, Fixture> | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState<Set<string> | null>(null)
+  const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [preview, setPreview] = useState<{
     universeId: string
@@ -150,6 +152,82 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
     setPreview(null)
   }
 
+  async function handleDropOnFixture(universeId: string, patchIndex: number) {
+    if (!draggedParams) return
+    const uConfig = universes[universeId]
+    const patch = uConfig.patches?.[patchIndex]
+    if (!patch) return
+
+    const fixtureChannelNames =
+      patch.fixtureKey === 'manual'
+        ? (patch.channels ?? [])
+        : (fixtures?.[patch.fixtureKey]?.channels ?? [])
+
+    const emitterChannels = draggedParams.map((n) => parseParam(n).channel)
+    const matches = matchChannels(emitterChannels, fixtureChannelNames)
+
+    if (matches.length === 0) return
+
+    const updated = { ...parameters }
+    for (const match of matches) {
+      const paramName = draggedParams.find(
+        (n) => parseParam(n).channel.toLowerCase() === match.emitterChannel.toLowerCase(),
+      )
+      if (paramName) {
+        updated[paramName] = [
+          { universe: Number(universeId), channel: patch.startAddress + match.fixtureIndex },
+        ] as unknown as ParameterConfig
+      }
+    }
+
+    await onSave(updated)
+    setDragging(null)
+    setDraggedParams(null)
+  }
+
+  async function handleDropOnEmpty(universeId: string, channel: number) {
+    if (!draggedParams) return
+
+    const startStr = window.prompt(
+      t`Start channel for new fixture:`,
+      String(channel),
+    )
+    if (startStr === null) return
+    const startAddress = parseInt(startStr, 10)
+    if (isNaN(startAddress) || startAddress < 1 || startAddress > 512) return
+
+    const emitterChannels = draggedParams.map((n) => parseParam(n).channel)
+
+    const newPatch: Patch = {
+      fixtureKey: 'manual',
+      label: draggedParams.length === 1
+        ? emitterChannels[0]
+        : parseParam(draggedParams[0]).group ?? t`Manual`,
+      startAddress,
+      channels: emitterChannels,
+    }
+
+    const uConfig = universes[universeId]
+    const updatedUniverses = {
+      ...universes,
+      [universeId]: {
+        ...uConfig,
+        patches: [...(uConfig.patches ?? []), newPatch],
+      },
+    }
+
+    const updatedParams = { ...parameters }
+    for (let i = 0; i < draggedParams.length; i++) {
+      updatedParams[draggedParams[i]] = [
+        { universe: Number(universeId), channel: startAddress + i },
+      ] as unknown as ParameterConfig
+    }
+
+    await onSaveConfig(updatedParams, updatedUniverses)
+    setDragging(null)
+    setDraggedParams(null)
+  }
+
   useEffect(() => {
     fetch('/api/fixtures')
       .then((r) => r.json() as Promise<Record<string, Fixture>>)
@@ -167,6 +245,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
     )
   }
 
+  const channelStates = resolveChannelStates(universes, parameters, fixtures)
   const groups = groupParams(paramNames)
   const allRows = paramNames.map((name) =>
     resolveMapping(name, params[name], parameters, universes, fixtures),
@@ -298,8 +377,9 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
                     e.dataTransfer.effectAllowed = 'copy'
                     setDragging(new Set(g.channels))
+                    setDraggedParams(g.channels)
                   }}
-                  onDragEnd={() => setDragging(null)}
+                  onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
                   onClick={() => selectGroup(g)}
                 >
                   <td colSpan={5} className="py-1.5 px-1 text-xs font-semibold text-text-muted">
@@ -325,8 +405,9 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                       e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: [row.paramName] }))
                       e.dataTransfer.effectAllowed = 'copy'
                       setDragging(new Set([row.paramName]))
+                      setDraggedParams([row.paramName])
                     }}
-                    onDragEnd={() => setDragging(null)}
+                    onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
                     className={cn(
                       'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
@@ -392,6 +473,22 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
           ))}
         </tbody>
       </table>
+
+      <div className="mt-6 border-t border-border pt-4">
+        <h2 className="text-sm font-semibold text-text-muted mb-3">
+          {t`Universe Channel Maps`}
+        </h2>
+        {Object.entries(universes).map(([uid, uConfig]) => (
+          <MappingChannelStrip
+            key={uid}
+            universeId={uid}
+            universe={uConfig}
+            channelStates={channelStates}
+            onDropOnFixture={(universeId, patchIndex) => handleDropOnFixture(universeId, patchIndex)}
+            onDropOnEmpty={(universeId, channel) => handleDropOnEmpty(universeId, channel)}
+          />
+        ))}
+      </div>
     </div>
   )
 }
