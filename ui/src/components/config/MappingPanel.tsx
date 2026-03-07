@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { t } from '@lingui/core/macro'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -86,7 +86,52 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState<Set<string> | null>(null)
   const [draggedParams, setDraggedParams] = useState<string[] | null>(null)
-  const [emptyDrop, setEmptyDrop] = useState<{ universeId: string; channel: number } | null>(null)
+  const [emptyDrop, setEmptyDrop] = useState<{
+    universeId: string
+    channel: number
+    paramNames: string[]
+  } | null>(null)
+  const dragImageRef = useRef<HTMLDivElement | null>(null)
+
+  const buildDragImage = useCallback((e: React.DragEvent, channelNames: string[]) => {
+    // Remove previous drag image if any
+    if (dragImageRef.current) {
+      document.body.removeChild(dragImageRef.current)
+    }
+    const ghost = document.createElement('div')
+    ghost.style.display = 'flex'
+    ghost.style.gap = '2px'
+    ghost.style.position = 'absolute'
+    ghost.style.top = '-9999px'
+    ghost.style.left = '-9999px'
+    for (const name of channelNames) {
+      const cell = document.createElement('div')
+      cell.textContent = name
+      cell.style.width = '48px'
+      cell.style.height = '48px'
+      cell.style.border = '2px dashed rgba(139, 92, 246, 0.6)'
+      cell.style.borderRadius = '4px'
+      cell.style.display = 'flex'
+      cell.style.alignItems = 'center'
+      cell.style.justifyContent = 'center'
+      cell.style.fontSize = '9px'
+      cell.style.color = 'rgba(139, 92, 246, 0.8)'
+      cell.style.background = 'rgba(139, 92, 246, 0.1)'
+      ghost.appendChild(cell)
+    }
+    document.body.appendChild(ghost)
+    dragImageRef.current = ghost
+    e.dataTransfer.setDragImage(ghost, 24, 24)
+  }, [])
+
+  // Cleanup drag image on unmount
+  useEffect(() => {
+    return () => {
+      if (dragImageRef.current) {
+        document.body.removeChild(dragImageRef.current)
+      }
+    }
+  }, [])
 
   async function handleDropOnFixture(universeId: string, patchIndex: number) {
     if (!draggedParams) return
@@ -123,42 +168,42 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
 
   function handleDropOnEmpty(universeId: string, channel: number) {
     if (!draggedParams) return
-    setEmptyDrop({ universeId, channel })
+    // Capture params now — onDragEnd will clear draggedParams after this
+    setEmptyDrop({ universeId, channel, paramNames: draggedParams })
   }
 
   async function confirmEmptyDrop(startAddress: number) {
-    if (!draggedParams || !emptyDrop) return
+    if (!emptyDrop) return
 
-    const emitterChannels = draggedParams.map((n) => parseParam(n).channel)
+    const { paramNames, universeId } = emptyDrop
+    const emitterChannels = paramNames.map((n) => parseParam(n).channel)
 
     const newPatch: Patch = {
       fixtureKey: 'manual',
-      label: draggedParams.length === 1
+      label: paramNames.length === 1
         ? emitterChannels[0]
-        : parseParam(draggedParams[0]).group ?? t`Manual`,
+        : parseParam(paramNames[0]).group ?? t`Manual`,
       startAddress,
       channels: emitterChannels,
     }
 
-    const uConfig = universes[emptyDrop.universeId]
+    const uConfig = universes[universeId]
     const updatedUniverses = {
       ...universes,
-      [emptyDrop.universeId]: {
+      [universeId]: {
         ...uConfig,
         patches: [...(uConfig.patches ?? []), newPatch],
       },
     }
 
     const updatedParams = { ...parameters }
-    for (let i = 0; i < draggedParams.length; i++) {
-      updatedParams[draggedParams[i]] = [
-        { universe: Number(emptyDrop.universeId), channel: startAddress + i },
+    for (let i = 0; i < paramNames.length; i++) {
+      updatedParams[paramNames[i]] = [
+        { universe: Number(universeId), channel: startAddress + i },
       ] as unknown as ParameterConfig
     }
 
     await onSaveConfig(updatedParams, updatedUniverses)
-    setDragging(null)
-    setDraggedParams(null)
     setEmptyDrop(null)
   }
 
@@ -225,10 +270,19 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
                       e.dataTransfer.effectAllowed = 'copy'
+                      const channelNames = g.channels.map((n) => parseParam(n).channel)
+                      buildDragImage(e, channelNames)
                       setDragging(new Set(g.channels))
                       setDraggedParams(g.channels)
                     }}
-                    onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
+                    onDragEnd={() => {
+                      setDragging(null)
+                      setDraggedParams(null)
+                      if (dragImageRef.current) {
+                        document.body.removeChild(dragImageRef.current)
+                        dragImageRef.current = null
+                      }
+                    }}
                   >
                     <td colSpan={5} className="py-1.5 px-1 text-sm font-semibold text-text-muted">
                       <button
@@ -268,10 +322,18 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: [row.paramName] }))
                       e.dataTransfer.effectAllowed = 'copy'
+                      buildDragImage(e, [parseParam(row.paramName).channel])
                       setDragging(new Set([row.paramName]))
                       setDraggedParams([row.paramName])
                     }}
-                    onDragEnd={() => { setDragging(null); setDraggedParams(null) }}
+                    onDragEnd={() => {
+                      setDragging(null)
+                      setDraggedParams(null)
+                      if (dragImageRef.current) {
+                        document.body.removeChild(dragImageRef.current)
+                        dragImageRef.current = null
+                      }
+                    }}
                     className={cn(
                       'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
@@ -337,22 +399,18 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
         ))}
       </div>
 
-      {emptyDrop && draggedParams && (
+      {emptyDrop && (
         <StartChannelDialog
           open
           defaultChannel={emptyDrop.channel}
           fixtureLabel={
-            draggedParams.length === 1
-              ? parseParam(draggedParams[0]).channel
-              : parseParam(draggedParams[0]).group ?? t`Manual`
+            emptyDrop.paramNames.length === 1
+              ? parseParam(emptyDrop.paramNames[0]).channel
+              : parseParam(emptyDrop.paramNames[0]).group ?? t`Manual`
           }
-          channelCount={draggedParams.length}
+          channelCount={emptyDrop.paramNames.length}
           onConfirm={confirmEmptyDrop}
-          onCancel={() => {
-            setEmptyDrop(null)
-            setDragging(null)
-            setDraggedParams(null)
-          }}
+          onCancel={() => setEmptyDrop(null)}
         />
       )}
     </div>
