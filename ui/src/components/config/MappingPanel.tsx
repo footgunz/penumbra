@@ -123,9 +123,29 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
     e.dataTransfer.setDragImage(canvas, 24, 24)
   }, [])
 
-  // Cleanup drag image on unmount
+  function startDrag(e: React.DragEvent, paramNames: string[]) {
+    e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames }))
+    e.dataTransfer.effectAllowed = 'copy'
+    buildDragImage(e, paramNames.length)
+    setDragging(new Set(paramNames))
+    setDraggedParams(paramNames)
+    document.body.style.cursor = 'grabbing'
+  }
+
+  function endDrag() {
+    setDragging(null)
+    setDraggedParams(null)
+    document.body.style.cursor = ''
+    if (dragImageRef.current) {
+      document.body.removeChild(dragImageRef.current)
+      dragImageRef.current = null
+    }
+  }
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      document.body.style.cursor = ''
       if (dragImageRef.current) {
         document.body.removeChild(dragImageRef.current)
       }
@@ -255,7 +275,7 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
         )}
       </div>
 
-      <table className="w-full text-sm">
+      <table className="text-sm">
         <thead>
           <tr className="border-b border-border text-text-muted text-xs text-left">
             <th className="pb-2 font-semibold">{t`Parameter`}</th>
@@ -274,21 +294,8 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                   <tr
                     className="bg-surface-raised/50 cursor-grab hover:bg-surface-raised"
                     draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: g.channels }))
-                      e.dataTransfer.effectAllowed = 'copy'
-                      buildDragImage(e, g.channels.length)
-                      setDragging(new Set(g.channels))
-                      setDraggedParams(g.channels)
-                    }}
-                    onDragEnd={() => {
-                      setDragging(null)
-                      setDraggedParams(null)
-                      if (dragImageRef.current) {
-                        document.body.removeChild(dragImageRef.current)
-                        dragImageRef.current = null
-                      }
-                    }}
+                    onDragStart={(e) => startDrag(e, g.channels)}
+                    onDragEnd={endDrag}
                   >
                     <td colSpan={5} className="py-1.5 px-1 text-sm font-semibold text-text-muted">
                       <button
@@ -325,21 +332,8 @@ export function MappingPanel({ params, parameters, universes, onSave, onSaveConf
                   <tr
                     key={row.paramName}
                     draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('application/penumbra-params', JSON.stringify({ paramNames: [row.paramName] }))
-                      e.dataTransfer.effectAllowed = 'copy'
-                      buildDragImage(e, 1)
-                      setDragging(new Set([row.paramName]))
-                      setDraggedParams([row.paramName])
-                    }}
-                    onDragEnd={() => {
-                      setDragging(null)
-                      setDraggedParams(null)
-                      if (dragImageRef.current) {
-                        document.body.removeChild(dragImageRef.current)
-                        dragImageRef.current = null
-                      }
-                    }}
+                    onDragStart={(e) => startDrag(e, [row.paramName])}
+                    onDragEnd={endDrag}
                     className={cn(
                       'border-b border-border/50 cursor-grab hover:bg-surface-raised/30',
                       !isMapped && 'opacity-40',
